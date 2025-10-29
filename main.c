@@ -30,6 +30,27 @@ int find_code(container* list, int size, const char* code_find) {
 
 
 container* read_file(const char* filename, int* listsize_p) {
+    FILE* file = fopen(filename, "r");
+    if (!file) {
+        perror("Erro ao abrir o arquivo");
+        *listsize_p = 0;
+        return NULL;
+    }
+
+    int size_list = 0;
+    if (fscanf(file, "%d\n", &size_list) != 1 || size_list <= 0) {
+        fprintf(stderr, "Erro ao ler o numero de containers do gabarito ou valor invalido.\n");
+        fclose(file);
+        *listsize_p = 0;
+        return NULL;
+    }
+
+
+
+
+
+
+
 
 
 }
