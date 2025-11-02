@@ -15,6 +15,9 @@ char received_weight;
 int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0 - variavel para ordenar por prioridade
 int test_weight; // Peso =< limite = 1, ultrapassou mais de 10% do limite (real_weight) = 0
 int id; // Ordem de cadastro
+double weight_diff_abs;
+double weight_diff_perc;
+int discrepancy;
 } container;
 
 
@@ -45,10 +48,56 @@ container* read_file(const char* filename, int* listsize_p) {
         return NULL;
     }
 
+    container* container_list = (container*)malloc(size_list * sizeof(container));
+    if (!container_list) {
+        perror("Erro ao alocar");
+        fclose(file);
+        *listsize_p = 0;
+        return NULL;
+    }
+    *listsize_p = size_list;
 
+    for(int i = 0; i < size_list; i++) {
+        if (fscanf(file, "%11s %19s %ld\n", container_list[i].code, container_list[i].real_cnpj, &container_list[i].real_weight) != 3) {
+            fprintf(stderr, "Erro de leitura");
+            free(container_list);
+            fclose(file);
+            *listsize_p = 0;
+            return NULL;
+        }
 
+        strcpy(container_list[i].received_cnpj, "");
+        container_list[i].received_weight = -1;
+        container_list[i].test_cnpj = 1;
+        container_list[i].test_weight = 1;
+        container_list[i].weight_diff_abs = 0.0;
+        container_list[i].weight_diff_perc = 0.0;
+        container_list[i].id = i;
+        container_list[i].discrepancy = 0;
+    }
 
+    int n_situation = 0;
+    if (fscanf(file, "%d\n", &n_situation) != 1 || n_situation < 0) {
+        fprintf(stderr, "Erro de leitura");
+        free(container_list);
+        fclose(file);
+        *listsize_p = 0;
+        return NULL;
+    };
 
+    char temp_code[CODE_LENGTH];
+    char temp_cnpj[CNPJ_LENGTH];
+    long int temp_weight;
+
+    for (int i = 0; i < n_situation; i++) {
+        if (fscanf(file, "%11s %19s %ld", temp_code, temp_cnpj, &temp_weight) != 3) {
+            fprintf(stderr, "Erro de leitura");
+            free(container_list);
+            fclose(file);
+            *listsize_p = 0;
+            return NULL;
+        }
+    }
 
 
 
