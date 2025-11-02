@@ -99,10 +99,49 @@ container* read_file(const char* filename, int* listsize_p) {
         }
     }
 
+    int index = find_code(container_list, size_list, temp_code);
 
+    if (index != -1) {
+        strcpy(container_list[index].received_cnpj, temp_cnpj);
+        container_list[index].received_weight = temp_weight;
 
+        if (strcmp(container_list[index].real_cnpj, container_list[index].received_cnpj) != 0) {
+            container_list[index].test_cnpj = 0;
+            container_list[index].discrepancy = 1;
+        } else {
+            container_list[index].test_cnpj = 1;
+        }
 
+        if (container_list[index].real_weight > 0) {
+            container_list[index].weight_diff_abs = fabs((double)container_list[index].real_weight - container_list[index].received_weight);
+            container_list[index].weight_diff_perc = (container_list[index].weight_diff_abs / container_list[index].real_weight) * 100.0;
+
+            if (container_list[index].weight_diff_perc > 10.0) {
+                container_list[index].test_weight = 0;
+                container_list[index].discrepancy = 1;
+            } else {
+                container_list[index].test_weight = 1;
+            }
+        } else {
+            if (container_list[index].real_weight != container_list[index].received_weight) {
+                container_list[index].test_weight = 0;
+                container_list[index].discrepancy = 1;
+                container_list[index].weight_diff_abs = fabs((double)container_list[index].real_weight - container_list[index].received_weight);
+            } else {
+                container_list[index].test_weight = 1;
+            }
+        }
+    } 
+    
+    else {
+        pass();
+    }
+
+    fclose(file);
+    return container_list;
 }
+
+
 
 
 
