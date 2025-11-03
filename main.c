@@ -42,7 +42,7 @@ container* read_file(const char* filename, int* listsize_p) {
 
     int size_list = 0;
     if (fscanf(file, "%d\n", &size_list) != 1 || size_list <= 0) {
-        fprintf(stderr, "Erro ao ler o numero de containers do gabarito ou valor invalido.\n");
+        fprintf(stderr, "Erro ao ler o numero de containers.\n");
         fclose(file);
         *listsize_p = 0;
         return NULL;
@@ -141,7 +141,7 @@ container* read_file(const char* filename, int* listsize_p) {
     return container_list;
 }
 
-
+container* 
 
 
 
