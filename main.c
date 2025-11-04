@@ -20,7 +20,6 @@ double weight_diff_perc;
 int discrepancy;
 } container;
 
-
 int find_code(container* list, int size, const char* code_find) {
     for (int i = 0; i < size; i++) {
         if (strcmp(list[i].code, code_find) == 0) {
@@ -30,9 +29,7 @@ int find_code(container* list, int size, const char* code_find) {
     return -1;
 }
 
-
-
-container* read_file(const char* filename, int* listsize_p, int* listmid) {
+container* read_file(const char* filename, int* listsize_p) {
     FILE* file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo");
@@ -47,12 +44,7 @@ container* read_file(const char* filename, int* listsize_p, int* listmid) {
         *listsize_p = 0;
         return NULL;
     }
-
-    int final_index = size_list - 1;
-    int initial_index = 0;
-    *listmid = initial_index + (final_index - initial_index)/2;
     
-
     container* container_list = (container*)malloc(size_list * sizeof(container));
     if (!container_list) {
         perror("Erro ao alocar");
@@ -146,7 +138,7 @@ container* read_file(const char* filename, int* listsize_p, int* listmid) {
     return container_list;
 }
 
-container* filter_list (container* list, int size_list) {
+container* filter_list (container* list, int size_list, int* discrepancy_count) {
 
     int counting_discrepancy = 0;
     for (int i = 0; i < size_list; i++) {
@@ -158,6 +150,8 @@ container* filter_list (container* list, int size_list) {
     if (counting_discrepancy == 0) {
         return NULL;
     }
+
+    *discrepancy_count = counting_discrepancy;
 
     container* filtered = (container*)malloc(counting_discrepancy * sizeof(container));
     if (!filtered) {
@@ -208,10 +202,42 @@ int compare_containers (const container* a, const container* b){
     }
 
     return a->id - b->id;
-    
+
 }
 
-container* mergsort (container* list, int start, int end) {}
+void intercalar(container* S, int i, int m, int j) {
+    int i1 = i;     // Início do primeiro sub-vetor
+    int i2 = m + 1; // Início do segundo sub-vetor
+    int k = 0;      // Índice do vetor auxiliar
+    int tam_aux = (j - i + 1);
+
+    container* aux = (container*)malloc(tam_aux * sizeof(container));
+    if (!aux) {
+        perror("Erro ao alocar memoria");
+        exit(1);
+    }
+
+    while (i1 <= m && i2 <= j) {
+        if (compare_containers(&S[i1], &S[i2]) <= 0) {
+            aux[k++] = S[i1++];
+        } else {
+            aux[k++] = S[i2++];
+        }
+    }
+
+    free(aux);
+}
+
+void mergesort (container* list, int start, int end) {
+    if (start < end) {
+    int m = start + (end - start)/2;
+    
+    mergsort(list, start, m);
+    mergsort(list, m+1, end);
+
+    intercalar(list, start, m, end);
+    }
+}
 
 
 
@@ -222,19 +248,51 @@ int main (int argc, char *argv[]) {
     container* list = NULL;
     container* filtered_list = NULL;
     int container_count = 0;
-    int listmid = 0;
-    list = read_file(input_filename, &container_count, &listmid);
+    list = read_file(input_filename, &container_count);
+    int discrepancy_count = 0;
 
     if (list == NULL || container_count == 0) {
         return 1;
     }
 
-    filtered_list = filter_list(list, container_count);
+    filtered_list = filter_list(list, container_count, &discrepancy_count);
     free(list);
 
     if (filtered_list == NULL) {
         return 1;
     }
+
+    mergesort(filter_list, 0, discrepancy_count - 1);
+
+    FILE* saida_file = fopen("output.txt", "w");
+
+    if (saida_file == NULL) {
+        perror("Erro ao criar o arquivo de saida");
+        free(list);
+        free(filter_list);
+        return 1; // Retorna erro
+    }
+
+    for (int i = 0; i < discrepancy_count; i++) {
+        container c = filtered_list[i]; // Pega o container ordenado
+        
+        if (c.test_cnpj == 0) { // Prioridade 1: CNPJ Errado [cite: 4]
+            // Usa fprintf com o ponteiro 'saida_file'
+            fprintf(saida_file, "%s:%s<->%s\n",
+                   c.code,
+                   c.real_cnpj,
+                   c.received_cnpj);
+        } else if (c.test_weight == 0) {
+            fprintf(saida_file, "%s:%.0fkg(%.0f%%)\n", 
+                   c.code,
+                   c.weight_diff_abs, 
+                   c.weight_diff_perc);
+        }
+    }
+
+    fclose(saida_file);
+    free(list);
+    free(filtered_list);
 
     return 0;
 }
