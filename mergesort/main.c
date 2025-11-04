@@ -10,8 +10,8 @@ typedef struct {
 char code[CODE_LENGTH];
 char real_cnpj[CNPJ_LENGTH];
 char received_cnpj[CNPJ_LENGTH];
-char real_weight;
-char received_weight;
+long int real_weight;
+long int received_weight;
 int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0 - variavel para ordenar por prioridade
 int test_weight; // Peso =< limite = 1, ultrapassou mais de 10% do limite (real_weight) = 0
 int id; // Ordem de cadastro
@@ -19,6 +19,7 @@ double weight_diff_abs;
 double weight_diff_perc;
 int discrepancy;
 } container;
+
 
 int find_code(container* list, int size, const char* code_find) {
     for (int i = 0; i < size; i++) {
@@ -56,12 +57,13 @@ container* read_file(const char* filename, int* listsize_p) {
 
     for(int i = 0; i < size_list; i++) {
         if (fscanf(file, "%11s %19s %ld\n", container_list[i].code, container_list[i].real_cnpj, &container_list[i].real_weight) != 3) {
-            fprintf(stderr, "Erro de leitura");
+            fprintf(stderr, "Erro de leitura (gabarito)\n");
             free(container_list);
             fclose(file);
             *listsize_p = 0;
             return NULL;
-        }
+        } 
+    
 
         strcpy(container_list[i].received_cnpj, "");
         container_list[i].received_weight = -1;
@@ -87,14 +89,13 @@ container* read_file(const char* filename, int* listsize_p) {
     long int temp_weight;
 
     for (int i = 0; i < n_situation; i++) {
-        if (fscanf(file, "%11s %19s %ld", temp_code, temp_cnpj, &temp_weight) != 3) {
-            fprintf(stderr, "Erro de leitura");
+        if (fscanf(file, "%11s %19s %ld\n", temp_code, temp_cnpj, &temp_weight) != 3) {
+            fprintf(stderr, "Erro de leitura\n");
             free(container_list);
             fclose(file);
             *listsize_p = 0;
             return NULL;
         }
-    }
 
     int index = find_code(container_list, size_list, temp_code);
 
@@ -110,7 +111,8 @@ container* read_file(const char* filename, int* listsize_p) {
         }
 
         if (container_list[index].real_weight > 0) {
-            container_list[index].weight_diff_abs = fabs((double)container_list[index].real_weight - container_list[index].received_weight);
+            double diff = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
+            container_list[index].weight_diff_abs = (diff < 0) ? -diff : diff;
             container_list[index].weight_diff_perc = (container_list[index].weight_diff_abs / container_list[index].real_weight) * 100.0;
 
             if (container_list[index].weight_diff_perc > 10.0) {
@@ -123,16 +125,16 @@ container* read_file(const char* filename, int* listsize_p) {
             if (container_list[index].real_weight != container_list[index].received_weight) {
                 container_list[index].test_weight = 0;
                 container_list[index].discrepancy = 1;
-                container_list[index].weight_diff_abs = fabs((double)container_list[index].real_weight - container_list[index].received_weight);
+                double diff_else = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
+                container_list[index].weight_diff_abs = (diff_else < 0) ? -diff_else : diff_else;
             } else {
                 container_list[index].test_weight = 1;
             }
         }
     } 
     
-    else {
-        pass();
-    }
+    else {}
+}
 
     fclose(file);
     return container_list;
@@ -148,6 +150,7 @@ container* filter_list (container* list, int size_list, int* discrepancy_count) 
     }
 
     if (counting_discrepancy == 0) {
+        *discrepancy_count = 0;
         return NULL;
     }
 
@@ -225,6 +228,18 @@ void intercalar(container* S, int i, int m, int j) {
         }
     }
 
+    while (i1 <= m) {
+        aux[k++] = S[i1++];
+    }
+    
+    while (i2 <= j) {
+        aux[k++] = S[i2++];
+    }
+
+    for (k = 0; k < tam_aux; k++) {
+        S[i + k] = aux[k];
+    }
+    
     free(aux);
 }
 
@@ -244,12 +259,17 @@ void mergesort (container* list, int start, int end) {
 
 int main (int argc, char *argv[]) {
 
+    if (argc < 2) {
+        return 1;
+    }
+
     const char* input_filename = argv[1];
     container* list = NULL;
     container* filtered_list = NULL;
     int container_count = 0;
-    list = read_file(input_filename, &container_count);
     int discrepancy_count = 0;
+
+    list = read_file(input_filename, &container_count);
 
     if (list == NULL || container_count == 0) {
         return 1;
@@ -262,14 +282,13 @@ int main (int argc, char *argv[]) {
         return 1;
     }
 
-    mergesort(filter_list, 0, discrepancy_count - 1);
+    mergesort(filtered_list, 0, discrepancy_count - 1);
 
     FILE* saida_file = fopen("output.txt", "w");
 
     if (saida_file == NULL) {
         perror("Erro ao criar o arquivo de saida");
-        free(list);
-        free(filter_list);
+        free(filtered_list);
         return 1; // Retorna erro
     }
 
@@ -291,7 +310,6 @@ int main (int argc, char *argv[]) {
     }
 
     fclose(saida_file);
-    free(list);
     free(filtered_list);
 
     return 0;
