@@ -232,8 +232,8 @@ void mergesort (container* list, int start, int end) {
     if (start < end) {
     int m = start + (end - start)/2;
     
-    mergsort(list, start, m);
-    mergsort(list, m+1, end);
+    mergesort(list, start, m);
+    mergesort(list, m+1, end);
 
     intercalar(list, start, m, end);
     }
