@@ -153,7 +153,11 @@ container* mergsort (container* list, int start, int end) {}
 
 int main (int argc, char *argv[]) {
 
+    const char* input_filename = argv[1];
+    int container_count = 0;
+    container* list = NULL;
     int listmid = 0;
+    list = read_file(input_filename, &container_count, &listmid);
 
     return 0;
 }
