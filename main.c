@@ -32,7 +32,7 @@ int find_code(container* list, int size, const char* code_find) {
 
 
 
-container* read_file(const char* filename, int* listsize_p) {
+container* read_file(const char* filename, int* listsize_p, int* listmid) {
     FILE* file = fopen(filename, "r");
     if (!file) {
         perror("Erro ao abrir o arquivo");
@@ -47,6 +47,11 @@ container* read_file(const char* filename, int* listsize_p) {
         *listsize_p = 0;
         return NULL;
     }
+
+    int final_index = size_list - 1;
+    int initial_index = 0;
+    *listmid = initial_index + (final_index - initial_index)/2;
+    
 
     container* container_list = (container*)malloc(size_list * sizeof(container));
     if (!container_list) {
@@ -141,14 +146,14 @@ container* read_file(const char* filename, int* listsize_p) {
     return container_list;
 }
 
-container* 
+container* mergsort (container* list, int start, int end) {}
 
 
 
 
 int main (int argc, char *argv[]) {
 
-
+    int listmid = 0;
 
     return 0;
 }
