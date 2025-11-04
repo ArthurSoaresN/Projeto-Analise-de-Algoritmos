@@ -146,6 +146,71 @@ container* read_file(const char* filename, int* listsize_p, int* listmid) {
     return container_list;
 }
 
+container* filter_list (container* list, int size_list) {
+
+    int counting_discrepancy = 0;
+    for (int i = 0; i < size_list; i++) {
+        if (list[i].discrepancy == 1) {
+            counting_discrepancy = counting_discrepancy + 1;
+        }
+    }
+
+    if (counting_discrepancy == 0) {
+        return NULL;
+    }
+
+    container* filtered = (container*)malloc(counting_discrepancy * sizeof(container));
+    if (!filtered) {
+        return NULL;
+    }
+
+    int j = 0;
+    for (int i = 0; i < size_list; i++) {
+        if (list[i].discrepancy == 1) {
+            filtered[j++] = list[i];
+        }
+    }
+
+    return filtered;
+
+}
+
+int compare_containers (const container* a, const container* b){
+
+    if (a->test_cnpj == 0 && b->test_cnpj == 1) {
+        return -1;
+    }
+
+    if (a->test_cnpj == 1 && b->test_cnpj == 0) {
+        return 1;  // 'b' (CNPJ errado) vem antes de 'a' (CNPJ certo)
+    }
+
+    if (a->test_cnpj == 0 && b->test_cnpj == 0) {
+        return a->id - b->id; // Desempate pela ordem de cadastro
+    }
+
+    if (a->test_weight == 0 && b->test_weight == 1) {
+        return -1; // 'a' (Peso errado) vem antes de 'b' (Peso certo)
+    }
+
+    if (a->test_weight == 1 && b->test_weight == 0) {
+        return 1;  // 'b' (Peso errado) vem antes de 'a' (Peso certo)
+    }
+
+    if (a->test_weight == 0 && b->test_weight == 0) {
+        if (a->weight_diff_perc > b->weight_diff_perc) {
+            return -1; // 'a' (maior dif) vem antes
+        }
+        if (a->weight_diff_perc < b->weight_diff_perc) {
+            return 1;  // 'b' (maior dif) vem antes
+        }
+        return a->id - b->id;
+    }
+
+    return a->id - b->id;
+    
+}
+
 container* mergsort (container* list, int start, int end) {}
 
 
@@ -154,10 +219,22 @@ container* mergsort (container* list, int start, int end) {}
 int main (int argc, char *argv[]) {
 
     const char* input_filename = argv[1];
-    int container_count = 0;
     container* list = NULL;
+    container* filtered_list = NULL;
+    int container_count = 0;
     int listmid = 0;
     list = read_file(input_filename, &container_count, &listmid);
+
+    if (list == NULL || container_count == 0) {
+        return 1;
+    }
+
+    filtered_list = filter_list(list, container_count);
+    free(list);
+
+    if (filtered_list == NULL) {
+        return 1;
+    }
 
     return 0;
 }
