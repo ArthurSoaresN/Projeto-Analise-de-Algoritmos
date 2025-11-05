@@ -101,7 +101,64 @@ vetor* read_file(const char* filename, int* num_vetores_ptr) {
     return lista_de_vetores;
 }
 
+results lomuto(vetor* lista_atual, int i, int j) {}
+
+results hoare(vetor* lista_atual, int i, int j) {}
+
+results lomuto_media (vetor* lista_atual) {}
+
+results lomuto_aleatorio (vetor* lista_atual) {}
+
+results lomuto_padrao (vetor* lista_atual) {}
+
+results hoare_media (vetor* lista_atual) {}
+
+results hoare_aleatorio (vetor* lista_atual) {}
+
+results hoare_padrao (vetor* lista_atual) {}
 
 
 
-int main (int argc, char *argv[]) {}
+
+
+int main (int argc, char *argv[]) {
+
+    if (argc < 2) {
+        return 1;
+    }
+
+    const char* input_filename = argv[1];
+    int num_vetores = 0;
+    vetor* todos_os_vetores = read_file(input_filename, &num_vetores);
+    results* lista_resultados = (results*)malloc(num_vetores * sizeof(results));
+
+
+    if (!todos_os_vetores || num_vetores == 0) {
+        fprintf(stderr, "Erro de processamento.\n");
+        return 1;
+    }
+
+
+    if (!lista_resultados) {
+        perror("Erro de alocação da lista de resultados");
+    }
+
+    // LOOP para ordenar os vetores
+    for (int i = 0; i < num_vetores; i++) {
+        vetor vetor_atual = todos_os_vetores[i];
+
+
+
+
+
+    }
+
+    // Depois de pegar os resultados imprimir no output
+     FILE* saida_file = fopen(argv[2], "w");
+
+     fclose(saida_file);
+
+     free(lista_resultados);
+     free(todos_os_vetores);
+
+}
