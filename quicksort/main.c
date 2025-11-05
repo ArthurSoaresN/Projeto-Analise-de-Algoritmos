@@ -118,9 +118,6 @@ results hoare_aleatorio (vetor* lista_atual) {}
 results hoare_padrao (vetor* lista_atual) {}
 
 
-
-
-
 int main (int argc, char *argv[]) {
 
     if (argc < 2) {
@@ -147,9 +144,17 @@ int main (int argc, char *argv[]) {
     for (int i = 0; i < num_vetores; i++) {
         vetor vetor_atual = todos_os_vetores[i];
 
+        // LP
 
+        // HP
 
+        // LA
 
+        // HA
+
+        // LM
+
+        // HM
 
     }
 
