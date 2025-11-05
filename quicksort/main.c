@@ -250,8 +250,7 @@ void quicksort_HM(int* V, int start, int end, long* trocas, long* chamadas) {
 
 int main (int argc, char *argv[]) {
 
-    if (argc < 3) { // CORREÇÃO: Precisa de 3 argumentos (programa, entrada, saida)
-        fprintf(stderr, "Uso: %s <entrada.txt> <saida.txt>\n", argv[0]);
+    if (argc < 3) {
         return 1;
     }
 
