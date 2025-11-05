@@ -284,7 +284,7 @@ int main (int argc, char *argv[]) {
 
     mergesort(filtered_list, 0, discrepancy_count - 1);
 
-    FILE* saida_file = fopen("output.txt", "w");
+    FILE* saida_file = fopen(argv[2], "w");
 
     if (saida_file == NULL) {
         perror("Erro ao criar o arquivo de saida");
