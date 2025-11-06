@@ -214,7 +214,7 @@ void quicksort_HA(int* V, int start, int end, long* trocas, long* chamadas) {
         funcao_trocar(&V[r], &V[start]); // Hoare espera pivô no início
         (*trocas)++;
 
-        int p = partition_hoare(V, start, end, trocas);
+        int p = hoare(V, start, end, trocas);
         quicksort_HA(V, start, p, trocas, chamadas);
         quicksort_HA(V, p + 1, end, trocas, chamadas);
     }
@@ -242,7 +242,7 @@ void quicksort_HM(int* V, int start, int end, long* trocas, long* chamadas) {
         funcao_trocar(&V[med_idx], &V[start]);
         (*trocas)++;
 
-        int p = partition_hoare(V, start, end, trocas);
+        int p = hoare(V, start, end, trocas);
         quicksort_HM(V, start, p, trocas, chamadas);
         quicksort_HM(V, p + 1, end, trocas, chamadas);
     }
