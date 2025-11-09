@@ -149,8 +149,6 @@ int main(int argc, char *argv[]) {
         
         bytes_no_buffer += tamanho_atual;
         pacotes_no_buffer++;
-
-        fscanf(input_file, "\n");
     }
 
     if (pacotes_no_buffer > 0) {
