@@ -1,12 +1,22 @@
-// main.c
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #define CODE_LENGTH 12
 #define CNPJ_LENGTH 20
+
+long int abs_long_diff(long int a, long int b) {
+    if (a >= b) return a - b;
+    return b - a;
+}
+
+long int round_double(double x) {
+    if (x >= 0.0)
+        return (long int)(x + 0.5);
+    else
+        return (long int)(x - 0.5);
+}
 
 typedef struct {
     char code[CODE_LENGTH];
@@ -14,11 +24,11 @@ typedef struct {
     char received_cnpj[CNPJ_LENGTH];
     long int real_weight;
     long int received_weight;
-    int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0
-    int test_weight; // Peso dentro do limite = 1, peso fora = 0
-    int id; // Ordem de cadastro
-    double weight_diff_abs;      // diferença absoluta (opcional)
-    double weight_pct_received;  // percentagem = received / real * 100
+    int test_cnpj;
+    int test_weight;
+    int id;
+    double weight_diff_abs;
+    double weight_pct_received;
     int discrepancy;
 } container;
 
@@ -41,31 +51,36 @@ container* read_file(const char* filename, int* listsize_p) {
 
     int size_list = 0;
     if (fscanf(file, "%d\n", &size_list) != 1 || size_list <= 0) {
-        fprintf(stderr, "Erro ao ler o numero de containers.\n");
+        fprintf(stderr, "Erro ao ler quantidade\n");
         fclose(file);
         *listsize_p = 0;
         return NULL;
     }
-    
-    container* container_list = (container*)malloc(size_list * sizeof(container));
+
+    container* container_list = malloc(size_list * sizeof(container));
     if (!container_list) {
-        perror("Erro ao alocar");
+        perror("Erro malloc");
         fclose(file);
         *listsize_p = 0;
         return NULL;
     }
     *listsize_p = size_list;
 
-    for(int i = 0; i < size_list; i++) {
-        if (fscanf(file, "%11s %19s %ld\n", container_list[i].code, container_list[i].real_cnpj, &container_list[i].real_weight) != 3) {
-            fprintf(stderr, "Erro de leitura (gabarito)\n");
+    for (int i = 0; i < size_list; i++) {
+        if (fscanf(
+                file, "%11s %19s %ld\n",
+                container_list[i].code,
+                container_list[i].real_cnpj,
+                &container_list[i].real_weight) != 3) 
+        {
+            fprintf(stderr, "Erro leitura gabarito\n");
             free(container_list);
             fclose(file);
             *listsize_p = 0;
             return NULL;
-        } 
+        }
 
-        strcpy(container_list[i].received_cnpj, "");
+        container_list[i].received_cnpj[0] = '\0';
         container_list[i].received_weight = -1;
         container_list[i].test_cnpj = 1;
         container_list[i].test_weight = 1;
@@ -76,120 +91,110 @@ container* read_file(const char* filename, int* listsize_p) {
     }
 
     int n_situation = 0;
-    if (fscanf(file, "%d\n", &n_situation) != 1 || n_situation < 0) {
-        fprintf(stderr, "Erro de leitura");
-        free(container_list);
-        fclose(file);
-        *listsize_p = 0;
-        return NULL;
-    };
+    fscanf(file, "%d\n", &n_situation);
 
     char temp_code[CODE_LENGTH];
     char temp_cnpj[CNPJ_LENGTH];
     long int temp_weight;
 
     for (int i = 0; i < n_situation; i++) {
-        if (fscanf(file, "%11s %19s %ld\n", temp_code, temp_cnpj, &temp_weight) != 3) {
-            fprintf(stderr, "Erro de leitura\n");
+        if (fscanf(file, "%11s %19s %ld\n",
+                   temp_code, temp_cnpj, &temp_weight) != 3) 
+        {
+            fprintf(stderr, "Erro leitura situação\n");
             free(container_list);
             fclose(file);
             *listsize_p = 0;
             return NULL;
         }
 
-        int index = find_code(container_list, size_list, temp_code);
+        int idx = find_code(container_list, size_list, temp_code);
+        if (idx == -1) continue;
 
-        if (index != -1) {
-            strcpy(container_list[index].received_cnpj, temp_cnpj);
-            container_list[index].received_weight = temp_weight;
+        strcpy(container_list[idx].received_cnpj, temp_cnpj);
+        container_list[idx].received_weight = temp_weight;
 
-            /* CNPJ check */
-            if (strcmp(container_list[index].real_cnpj, container_list[index].received_cnpj) != 0) {
-                container_list[index].test_cnpj = 0;
-                container_list[index].discrepancy = 1;
+        if (strcmp(container_list[idx].real_cnpj,
+                   container_list[idx].received_cnpj) != 0) 
+        {
+            container_list[idx].test_cnpj = 0;
+            container_list[idx].discrepancy = 1;
+        } else {
+            container_list[idx].test_cnpj = 1;
+        }
+
+        if (container_list[idx].real_weight > 0) {
+            container_list[idx].weight_diff_abs =
+                (double)abs_long_diff(
+                    container_list[idx].real_weight,
+                    container_list[idx].received_weight);
+
+            container_list[idx].weight_pct_received =
+                ((double)container_list[idx].received_weight /
+                     (double)container_list[idx].real_weight) *
+                100.0;
+
+            double diff_perc =
+                (container_list[idx].weight_diff_abs /
+                     (double)container_list[idx].real_weight) *
+                100.0;
+
+            if (diff_perc > 10.0) {
+                container_list[idx].test_weight = 0;
+                container_list[idx].discrepancy = 1;
             } else {
-                container_list[index].test_cnpj = 1;
+                container_list[idx].test_weight = 1;
             }
-
-            if (container_list[index].real_weight > 0) {
-                double diff = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
-                container_list[index].weight_diff_abs = fabs(diff);
-
-                container_list[index].weight_pct_received = ((double)container_list[index].received_weight / (double)container_list[index].real_weight) * 100.0;
-
-                double diff_perc = (container_list[index].weight_diff_abs / (double)container_list[index].real_weight) * 100.0;
-                if (diff_perc > 10.0) {
-                    container_list[index].test_weight = 0;
-                    container_list[index].discrepancy = 1;
-                } else {
-                    container_list[index].test_weight = 1;
-                }
+        } else {
+            if (container_list[idx].received_weight != 0) {
+                container_list[idx].test_weight = 0;
+                container_list[idx].discrepancy = 1;
+                container_list[idx].weight_diff_abs =
+                    (double)abs_long_diff(
+                        container_list[idx].real_weight,
+                        container_list[idx].received_weight);
+                container_list[idx].weight_pct_received = 0.0;
             } else {
-                if (container_list[index].real_weight != container_list[index].received_weight) {
-                    container_list[index].test_weight = 0;
-                    container_list[index].discrepancy = 1;
-                    double diff_else = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
-                    container_list[index].weight_diff_abs = fabs(diff_else);
-                    container_list[index].weight_pct_received = 0.0; /* undefined, keep 0 */
-                } else {
-                    container_list[index].test_weight = 1;
-                    container_list[index].weight_pct_received = 100.0;
-                    container_list[index].weight_diff_abs = 0.0;
-                }
+                container_list[idx].test_weight = 1;
+                container_list[idx].weight_diff_abs = 0.0;
+                container_list[idx].weight_pct_received = 100.0;
             }
-        } 
-        else {}
+        }
     }
 
     fclose(file);
     return container_list;
 }
 
-container* filter_list (container* list, int size_list, int* discrepancy_count) {
-    int counting_discrepancy = 0;
+container* filter_list(container* list, int size_list, int* discrepancy_count) {
+    int count = 0;
     for (int i = 0; i < size_list; i++) {
-        if (list[i].discrepancy == 1) {
-            counting_discrepancy++;
-        }
+        if (list[i].discrepancy == 1) count++;
     }
 
-    if (counting_discrepancy == 0) {
-        *discrepancy_count = 0;
-        return NULL;
-    }
+    *discrepancy_count = count;
+    if (count == 0) return NULL;
 
-    *discrepancy_count = counting_discrepancy;
-
-    container* filtered = (container*)malloc(counting_discrepancy * sizeof(container));
-    if (!filtered) {
-        return NULL;
-    }
+    container* filtered = malloc(count * sizeof(container));
+    if (!filtered) return NULL;
 
     int j = 0;
     for (int i = 0; i < size_list; i++) {
-        if (list[i].discrepancy == 1) {
-            filtered[j++] = list[i];
-        }
+        if (list[i].discrepancy) filtered[j++] = list[i];
     }
-
     return filtered;
 }
 
-int compare_containers (const container* a, const container* b){
-    /* Prioridade: CNPJ errado antes; desempate por ordem de cadastro.
-       Se ambos CNPJ corretos, comparar peso: peso fora antes; entre pesos fora, maior percentagem recebida primeiro.
-       Em tudo, desempatar por id (ordem de cadastro).
-    */
-
+int compare_containers(const container* a, const container* b) {
     if (a->test_cnpj == 0 && b->test_cnpj == 1) return -1;
     if (a->test_cnpj == 1 && b->test_cnpj == 0) return 1;
-    if (a->test_cnpj == 0 && b->test_cnpj == 0) return a->id - b->id;
+    if (a->test_cnpj == 0 && b->test_cnpj == 0)
+        return a->id - b->id;
 
     if (a->test_weight == 0 && b->test_weight == 1) return -1;
     if (a->test_weight == 1 && b->test_weight == 0) return 1;
 
     if (a->test_weight == 0 && b->test_weight == 0) {
-        /* Aqui usamos percentagem recebida (maior percentual recebido vem antes) */
         if (a->weight_pct_received > b->weight_pct_received) return -1;
         if (a->weight_pct_received < b->weight_pct_received) return 1;
         return a->id - b->id;
@@ -199,90 +204,81 @@ int compare_containers (const container* a, const container* b){
 }
 
 void intercalar(container* S, int i, int m, int j) {
-    int i1 = i;
-    int i2 = m + 1;
-    int k = 0;
-    int tam_aux = (j - i + 1);
+    int i1 = i, i2 = m + 1, k = 0;
+    int tam = j - i + 1;
 
-    container* aux = (container*)malloc(tam_aux * sizeof(container));
-    if (!aux) {
-        perror("Erro ao alocar memoria");
-        exit(1);
-    }
+    container* aux = malloc(tam * sizeof(container));
+    if (!aux) exit(1);
 
     while (i1 <= m && i2 <= j) {
-        if (compare_containers(&S[i1], &S[i2]) <= 0) aux[k++] = S[i1++];
-        else aux[k++] = S[i2++];
+        if (compare_containers(&S[i1], &S[i2]) <= 0)
+            aux[k++] = S[i1++];
+        else
+            aux[k++] = S[i2++];
     }
 
     while (i1 <= m) aux[k++] = S[i1++];
     while (i2 <= j) aux[k++] = S[i2++];
 
-    for (k = 0; k < tam_aux; k++) S[i + k] = aux[k];
+    for (k = 0; k < tam; k++) S[i + k] = aux[k];
+
     free(aux);
 }
 
-void mergesort (container* list, int start, int end) {
+void mergesort(container* list, int start, int end) {
     if (start < end) {
-        int m = start + (end - start)/2;
+        int m = (start + end) / 2;
         mergesort(list, start, m);
-        mergesort(list, m+1, end);
+        mergesort(list, m + 1, end);
         intercalar(list, start, m, end);
     }
 }
 
-int main (int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     if (argc < 3) {
         fprintf(stderr, "Uso: %s entrada.txt saida.txt\n", argv[0]);
         return 1;
     }
 
-    const char* input_filename = argv[1];
-    const char* output_filename = argv[2];
-    container* list = NULL;
-    container* filtered_list = NULL;
     int container_count = 0;
+    container* list = read_file(argv[1], &container_count);
+    if (!list) return 1;
+
     int discrepancy_count = 0;
-
-    list = read_file(input_filename, &container_count);
-    if (list == NULL || container_count == 0) {
-        return 1;
-    }
-
-    filtered_list = filter_list(list, container_count, &discrepancy_count);
+    container* filtered = filter_list(list, container_count, &discrepancy_count);
     free(list);
 
-    if (filtered_list == NULL) {
-        /* nada a reportar */
-        FILE* saida_file = fopen(output_filename, "w");
-        if (saida_file) fclose(saida_file);
+    if (!filtered || discrepancy_count == 0) {
+        FILE* out = fopen(argv[2], "w");
+        if (out) fclose(out);
         return 0;
     }
 
-    mergesort(filtered_list, 0, discrepancy_count - 1);
+    mergesort(filtered, 0, discrepancy_count - 1);
 
-    FILE* saida_file = fopen(output_filename, "w");
-    if (saida_file == NULL) {
-        perror("Erro ao criar o arquivo de saida");
-        free(filtered_list);
+    FILE* out = fopen(argv[2], "w");
+    if (!out) {
+        perror("Erro escrever");
+        free(filtered);
         return 1;
     }
 
     for (int i = 0; i < discrepancy_count; i++) {
-        container c = filtered_list[i];
+        container c = filtered[i];
 
         if (c.test_cnpj == 0) {
-            fprintf(saida_file, "%s:%s<->%s\n", c.code, c.real_cnpj, c.received_cnpj);
-        } else if (c.test_weight == 0) {
-            fprintf(saida_file, "%s:%ldkg(%.0f%%)\n",
+            fprintf(out, "%s:%s<->%s\n",
+                    c.code, c.real_cnpj, c.received_cnpj);
+        }
+        else if (c.test_weight == 0) {
+            fprintf(out, "%s:%ldkg(%ld%%)\n",
                     c.code,
                     c.received_weight,
-                    round(c.weight_pct_received));
+                    round_double(c.weight_pct_received));
         }
     }
 
-    fclose(saida_file);
-    free(filtered_list);
-
+    fclose(out);
+    free(filtered);
     return 0;
 }
