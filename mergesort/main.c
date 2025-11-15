@@ -108,55 +108,58 @@ container* read_file(const char* filename, int* listsize_p) {
             return NULL;
         }
 
-        int idx = find_code(container_list, size_list, temp_code);
-        if (idx == -1) continue;
+        int indice = find_code(container_list, size_list, temp_code);
+        if (indice == -1) continue;
 
-        strcpy(container_list[idx].received_cnpj, temp_cnpj);
-        container_list[idx].received_weight = temp_weight;
+        strcpy(container_list[indice].received_cnpj, temp_cnpj);
+        container_list[indice].received_weight = temp_weight;
 
-        if (strcmp(container_list[idx].real_cnpj,
-                   container_list[idx].received_cnpj) != 0) 
+        if (strcmp(container_list[indice].real_cnpj,
+                   container_list[indice].received_cnpj) != 0) 
         {
-            container_list[idx].test_cnpj = 0;
-            container_list[idx].discrepancy = 1;
+            container_list[indice].test_cnpj = 0;
+            container_list[indice].discrepancy = 1;
         } else {
-            container_list[idx].test_cnpj = 1;
+            container_list[indice].test_cnpj = 1;
         }
 
-        if (container_list[idx].real_weight > 0) {
-            container_list[idx].weight_diff_abs =
+        if (container_list[indice].real_weight > 0) {
+            container_list[indice].weight_diff_abs =
                 (double)abs_long_diff(
-                    container_list[idx].real_weight,
-                    container_list[idx].received_weight);
-
-            container_list[idx].weight_pct_received =
-                ((double)container_list[idx].received_weight * 100 / (double)container_list[idx].real_weight);
+                    container_list[indice].real_weight,
+                    container_list[indice].received_weight);
 
             double diff_perc =
-                (container_list[idx].weight_diff_abs /
-                     (double)container_list[idx].real_weight) *
+                (container_list[indice].weight_diff_abs /
+                     (double)container_list[indice].real_weight) *
                 100.0;
 
+            container_list[indice].weight_pct_received = diff_perc;
+
             if (diff_perc > 10.0) {
-                container_list[idx].test_weight = 0;
-                container_list[idx].discrepancy = 1;
+                container_list[indice].test_weight = 0;
+                container_list[indice].discrepancy = 1;
             } else {
-                container_list[idx].test_weight = 1;
+                container_list[indice].test_weight = 1;
             }
         } else {
-            if (container_list[idx].received_weight != 0) {
-                container_list[idx].test_weight = 0;
-                container_list[idx].discrepancy = 1;
-                container_list[idx].weight_diff_abs =
+            if (container_list[indice].received_weight != 0) {
+                container_list[indice].test_weight = 0;
+                container_list[indice].discrepancy = 1;
+                container_list[indice].weight_diff_abs =
                     (double)abs_long_diff(
-                        container_list[idx].real_weight,
-                        container_list[idx].received_weight);
-                container_list[idx].weight_pct_received = 0.0;
+                        container_list[indice].real_weight,
+                        container_list[indice].received_weight);
+                container_list[indice].weight_pct_received = 0.0;
             } else {
-                container_list[idx].test_weight = 1;
-                container_list[idx].weight_diff_abs = 0.0;
-                container_list[idx].weight_pct_received = 100.0;
+                container_list[indice].test_weight = 1;
+                container_list[indice].weight_diff_abs = 0.0;
+                container_list[indice].weight_pct_received = 0.0;
             }
+        }
+
+        if (container_list[indice].test_cnpj == 0 || container_list[indice].test_weight == 0) {
+            container_list[indice].discrepancy = 1;
         }
     }
 
@@ -188,16 +191,12 @@ int compare_containers(const container* a, const container* b) {
     if (a->test_cnpj == 1 && b->test_cnpj == 0) return 1;
     if (a->test_cnpj == 0 && b->test_cnpj == 0)
         return a->id - b->id;
-
     if (a->test_weight == 0 && b->test_weight == 1) return -1;
     if (a->test_weight == 1 && b->test_weight == 0) return 1;
-
     if (a->test_weight == 0 && b->test_weight == 0) {
         if (a->weight_pct_received > b->weight_pct_received) return -1;
         if (a->weight_pct_received < b->weight_pct_received) return 1;
-        return a->id - b->id;
     }
-
     return a->id - b->id;
 }
 
@@ -271,8 +270,8 @@ int main(int argc, char* argv[]) {
         else if (c.test_weight == 0) {
             fprintf(out, "%s:%ldkg(%ld%%)\n",
                     c.code,
-                    (c.received_weight - c.real_weight),
-                    ((int)c.weight_pct_received - 100));
+                    (long int)c.weight_diff_abs,
+                    round_double(c.weight_pct_received));
         }
     }
 
