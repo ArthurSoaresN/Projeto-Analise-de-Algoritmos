@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define CODE_LENGTH 12
 #define CNPJ_LENGTH 20
