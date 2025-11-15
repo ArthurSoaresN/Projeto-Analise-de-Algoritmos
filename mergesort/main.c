@@ -6,16 +6,16 @@
 #define CODE_LENGTH 12
 #define CNPJ_LENGTH 20
 
-long int abs_long_diff(long int a, long int b) {
-    if (a >= b) return a - b;
-    return b - a;
-}
-
 long int round_double(double x) {
     if (x >= 0.0)
         return (long int)(x + 0.5);
     else
         return (long int)(x - 0.5);
+}
+
+long int abs_long_diff(long int a, long int b) {
+    if (a >= b) return a - b;
+    return b - a;
 }
 
 typedef struct {
@@ -136,7 +136,9 @@ container* read_file(const char* filename, int* listsize_p) {
 
             container_list[indice].weight_pct_received = diff_perc;
 
-            if (diff_perc > 10.0) {
+            long int rounded_perc = round_double(diff_perc);
+
+            if (rounded_perc > 10) {
                 container_list[indice].test_weight = 0;
                 container_list[indice].discrepancy = 1;
             } else {
@@ -191,11 +193,18 @@ int compare_containers(const container* a, const container* b) {
     if (a->test_cnpj == 1 && b->test_cnpj == 0) return 1;
     if (a->test_cnpj == 0 && b->test_cnpj == 0)
         return a->id - b->id;
+    
     if (a->test_weight == 0 && b->test_weight == 1) return -1;
     if (a->test_weight == 1 && b->test_weight == 0) return 1;
+    
     if (a->test_weight == 0 && b->test_weight == 0) {
-        if (a->weight_pct_received > b->weight_pct_received) return -1;
-        if (a->weight_pct_received < b->weight_pct_received) return 1;
+        long int ra = round_double(a->weight_pct_received);
+        long int rb = round_double(b->weight_pct_received);
+
+        if (ra > rb) return -1;
+        if (ra < rb) return 1;
+        
+        return a->id - b->id;
     }
     return a->id - b->id;
 }
@@ -269,7 +278,7 @@ int main(int argc, char* argv[]) {
         }
         else if (c.test_weight == 0) {
             int diferenca_kg = abs_long_diff(c.received_weight,c.real_weight);
-            fprintf(out, "%s:%dkg(%0f%%)\n",
+            fprintf(out, "%s:%dkg(%.0f%%)\n",
                     c.code,
                     diferenca_kg,
                     c.weight_pct_received);
