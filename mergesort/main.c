@@ -1,3 +1,4 @@
+// main.c
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,19 +9,18 @@
 #define CNPJ_LENGTH 20
 
 typedef struct {
-char code[CODE_LENGTH];
-char real_cnpj[CNPJ_LENGTH];
-char received_cnpj[CNPJ_LENGTH];
-long int real_weight;
-long int received_weight;
-int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0 - variavel para ordenar por prioridade
-int test_weight; // Peso =< limite = 1, ultrapassou mais de 10% do limite (real_weight) = 0
-int id; // Ordem de cadastro
-double weight_diff_abs;
-double weight_pct_received;
-int discrepancy;
+    char code[CODE_LENGTH];
+    char real_cnpj[CNPJ_LENGTH];
+    char received_cnpj[CNPJ_LENGTH];
+    long int real_weight;
+    long int received_weight;
+    int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0
+    int test_weight; // Peso dentro do limite = 1, peso fora = 0
+    int id; // Ordem de cadastro
+    double weight_diff_abs;      // diferença absoluta (opcional)
+    double weight_pct_received;  // percentagem = received / real * 100
+    int discrepancy;
 } container;
-
 
 int find_code(container* list, int size, const char* code_find) {
     for (int i = 0; i < size; i++) {
@@ -64,7 +64,6 @@ container* read_file(const char* filename, int* listsize_p) {
             *listsize_p = 0;
             return NULL;
         } 
-    
 
         strcpy(container_list[i].received_cnpj, "");
         container_list[i].received_weight = -1;
@@ -147,11 +146,10 @@ container* read_file(const char* filename, int* listsize_p) {
 }
 
 container* filter_list (container* list, int size_list, int* discrepancy_count) {
-
     int counting_discrepancy = 0;
     for (int i = 0; i < size_list; i++) {
         if (list[i].discrepancy == 1) {
-            counting_discrepancy = counting_discrepancy + 1;
+            counting_discrepancy++;
         }
     }
 
@@ -175,45 +173,35 @@ container* filter_list (container* list, int size_list, int* discrepancy_count) 
     }
 
     return filtered;
-
 }
 
 int compare_containers (const container* a, const container* b){
+    /* Prioridade: CNPJ errado antes; desempate por ordem de cadastro.
+       Se ambos CNPJ corretos, comparar peso: peso fora antes; entre pesos fora, maior percentagem recebida primeiro.
+       Em tudo, desempatar por id (ordem de cadastro).
+    */
 
-    if (a->test_cnpj == 0 && b->test_cnpj == 1) {
-        return -1;
-    }
+    if (a->test_cnpj == 0 && b->test_cnpj == 1) return -1;
+    if (a->test_cnpj == 1 && b->test_cnpj == 0) return 1;
+    if (a->test_cnpj == 0 && b->test_cnpj == 0) return a->id - b->id;
 
-    if (a->test_cnpj == 1 && b->test_cnpj == 0) {
-        return 1;  // 'b' (CNPJ errado) vem antes de 'a' (CNPJ certo)
-    }
-
-    if (a->test_cnpj == 0 && b->test_cnpj == 0) {
-        return a->id - b->id; // Desempate pela ordem de cadastro
-    }
-
-    if (a->test_weight == 0 && b->test_weight == 1) {
-        return -1; // 'a' (Peso errado) vem antes de 'b' (Peso certo)
-    }
-
-    if (a->test_weight == 1 && b->test_weight == 0) {
-        return 1;  // 'b' (Peso errado) vem antes de 'a' (Peso certo)
-    }
+    if (a->test_weight == 0 && b->test_weight == 1) return -1;
+    if (a->test_weight == 1 && b->test_weight == 0) return 1;
 
     if (a->test_weight == 0 && b->test_weight == 0) {
+        /* Aqui usamos percentagem recebida (maior percentual recebido vem antes) */
         if (a->weight_pct_received > b->weight_pct_received) return -1;
         if (a->weight_pct_received < b->weight_pct_received) return 1;
         return a->id - b->id;
     }
 
     return a->id - b->id;
-
 }
 
 void intercalar(container* S, int i, int m, int j) {
-    int i1 = i;     // Início do primeiro sub-vetor
-    int i2 = m + 1; // Início do segundo sub-vetor
-    int k = 0;      // Índice do vetor auxiliar
+    int i1 = i;
+    int i2 = m + 1;
+    int k = 0;
     int tam_aux = (j - i + 1);
 
     container* aux = (container*)malloc(tam_aux * sizeof(container));
@@ -223,56 +211,40 @@ void intercalar(container* S, int i, int m, int j) {
     }
 
     while (i1 <= m && i2 <= j) {
-        if (compare_containers(&S[i1], &S[i2]) <= 0) {
-            aux[k++] = S[i1++];
-        } else {
-            aux[k++] = S[i2++];
-        }
+        if (compare_containers(&S[i1], &S[i2]) <= 0) aux[k++] = S[i1++];
+        else aux[k++] = S[i2++];
     }
 
-    while (i1 <= m) {
-        aux[k++] = S[i1++];
-    }
-    
-    while (i2 <= j) {
-        aux[k++] = S[i2++];
-    }
+    while (i1 <= m) aux[k++] = S[i1++];
+    while (i2 <= j) aux[k++] = S[i2++];
 
-    for (k = 0; k < tam_aux; k++) {
-        S[i + k] = aux[k];
-    }
-    
+    for (k = 0; k < tam_aux; k++) S[i + k] = aux[k];
     free(aux);
 }
 
 void mergesort (container* list, int start, int end) {
     if (start < end) {
-    int m = start + (end - start)/2;
-    
-    mergesort(list, start, m);
-    mergesort(list, m+1, end);
-
-    intercalar(list, start, m, end);
+        int m = start + (end - start)/2;
+        mergesort(list, start, m);
+        mergesort(list, m+1, end);
+        intercalar(list, start, m, end);
     }
 }
 
-
-
-
 int main (int argc, char *argv[]) {
-
-    if (argc < 2) {
+    if (argc < 3) {
+        fprintf(stderr, "Uso: %s entrada.txt saida.txt\n", argv[0]);
         return 1;
     }
 
     const char* input_filename = argv[1];
+    const char* output_filename = argv[2];
     container* list = NULL;
     container* filtered_list = NULL;
     int container_count = 0;
     int discrepancy_count = 0;
 
     list = read_file(input_filename, &container_count);
-
     if (list == NULL || container_count == 0) {
         return 1;
     }
@@ -281,17 +253,19 @@ int main (int argc, char *argv[]) {
     free(list);
 
     if (filtered_list == NULL) {
-        return 1;
+        /* nada a reportar */
+        FILE* saida_file = fopen(output_filename, "w");
+        if (saida_file) fclose(saida_file);
+        return 0;
     }
 
     mergesort(filtered_list, 0, discrepancy_count - 1);
 
-    FILE* saida_file = fopen(argv[2], "w");
-
+    FILE* saida_file = fopen(output_filename, "w");
     if (saida_file == NULL) {
         perror("Erro ao criar o arquivo de saida");
         free(filtered_list);
-        return 1; // Retorna erro
+        return 1;
     }
 
     for (int i = 0; i < discrepancy_count; i++) {
