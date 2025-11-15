@@ -268,10 +268,11 @@ int main(int argc, char* argv[]) {
                     c.code, c.real_cnpj, c.received_cnpj);
         }
         else if (c.test_weight == 0) {
-            fprintf(out, "%s:%ldkg(%ld%%)\n",
+            int diferenca_kg = abs_long_diff(c.received_weight,c.real_weight);
+            fprintf(out, "%s:%dkg(%0f%%)\n",
                     c.code,
-                    (long int)c.weight_diff_abs,
-                    round_double(c.weight_pct_received));
+                    diferenca_kg,
+                    c.weight_pct_received);
         }
     }
 
