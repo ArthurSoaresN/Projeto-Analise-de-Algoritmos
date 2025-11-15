@@ -16,7 +16,7 @@ int test_cnpj; // CNPJ correto = 1, CNPJ errado = 0 - variavel para ordenar por 
 int test_weight; // Peso =< limite = 1, ultrapassou mais de 10% do limite (real_weight) = 0
 int id; // Ordem de cadastro
 double weight_diff_abs;
-double weight_diff_perc;
+double weight_pct_received;
 int discrepancy;
 } container;
 
@@ -70,7 +70,7 @@ container* read_file(const char* filename, int* listsize_p) {
         container_list[i].test_cnpj = 1;
         container_list[i].test_weight = 1;
         container_list[i].weight_diff_abs = 0.0;
-        container_list[i].weight_diff_perc = 0.0;
+        container_list[i].weight_pct_received = 0.0;
         container_list[i].id = i;
         container_list[i].discrepancy = 0;
     }
@@ -97,44 +97,49 @@ container* read_file(const char* filename, int* listsize_p) {
             return NULL;
         }
 
-    int index = find_code(container_list, size_list, temp_code);
+        int index = find_code(container_list, size_list, temp_code);
 
-    if (index != -1) {
-        strcpy(container_list[index].received_cnpj, temp_cnpj);
-        container_list[index].received_weight = temp_weight;
+        if (index != -1) {
+            strcpy(container_list[index].received_cnpj, temp_cnpj);
+            container_list[index].received_weight = temp_weight;
 
-        if (strcmp(container_list[index].real_cnpj, container_list[index].received_cnpj) != 0) {
-            container_list[index].test_cnpj = 0;
-            container_list[index].discrepancy = 1;
-        } else {
-            container_list[index].test_cnpj = 1;
-        }
-
-        if (container_list[index].real_weight > 0) {
-            double diff = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
-            container_list[index].weight_diff_abs = (diff < 0) ? -diff : diff;
-            container_list[index].weight_diff_perc = (container_list[index].weight_diff_abs / container_list[index].real_weight) * 100.0;
-
-            if (container_list[index].weight_diff_perc > 10.0) {
-                container_list[index].test_weight = 0;
+            /* CNPJ check */
+            if (strcmp(container_list[index].real_cnpj, container_list[index].received_cnpj) != 0) {
+                container_list[index].test_cnpj = 0;
                 container_list[index].discrepancy = 1;
             } else {
-                container_list[index].test_weight = 1;
+                container_list[index].test_cnpj = 1;
             }
-        } else {
-            if (container_list[index].real_weight != container_list[index].received_weight) {
-                container_list[index].test_weight = 0;
-                container_list[index].discrepancy = 1;
-                double diff_else = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
-                container_list[index].weight_diff_abs = (diff_else < 0) ? -diff_else : diff_else;
+
+            if (container_list[index].real_weight > 0) {
+                double diff = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
+                container_list[index].weight_diff_abs = fabs(diff);
+
+                container_list[index].weight_pct_received = ((double)container_list[index].received_weight / (double)container_list[index].real_weight) * 100.0;
+
+                double diff_perc = (container_list[index].weight_diff_abs / (double)container_list[index].real_weight) * 100.0;
+                if (diff_perc > 10.0) {
+                    container_list[index].test_weight = 0;
+                    container_list[index].discrepancy = 1;
+                } else {
+                    container_list[index].test_weight = 1;
+                }
             } else {
-                container_list[index].test_weight = 1;
+                if (container_list[index].real_weight != container_list[index].received_weight) {
+                    container_list[index].test_weight = 0;
+                    container_list[index].discrepancy = 1;
+                    double diff_else = (double)container_list[index].real_weight - (double)container_list[index].received_weight;
+                    container_list[index].weight_diff_abs = fabs(diff_else);
+                    container_list[index].weight_pct_received = 0.0; /* undefined, keep 0 */
+                } else {
+                    container_list[index].test_weight = 1;
+                    container_list[index].weight_pct_received = 100.0;
+                    container_list[index].weight_diff_abs = 0.0;
+                }
             }
-        }
-    } 
-    
-    else {}
-}
+        } 
+        else {}
+    }
 
     fclose(file);
     return container_list;
@@ -195,12 +200,8 @@ int compare_containers (const container* a, const container* b){
     }
 
     if (a->test_weight == 0 && b->test_weight == 0) {
-        if (a->weight_diff_perc > b->weight_diff_perc) {
-            return -1; // 'a' (maior dif) vem antes
-        }
-        if (a->weight_diff_perc < b->weight_diff_perc) {
-            return 1;  // 'b' (maior dif) vem antes
-        }
+        if (a->weight_pct_received > b->weight_pct_received) return -1;
+        if (a->weight_pct_received < b->weight_pct_received) return 1;
         return a->id - b->id;
     }
 
@@ -293,19 +294,15 @@ int main (int argc, char *argv[]) {
     }
 
     for (int i = 0; i < discrepancy_count; i++) {
-        container c = filtered_list[i]; // Pega o container ordenado
-        
-        if (c.test_cnpj == 0) { // Prioridade 1: CNPJ Errado [cite: 4]
-            // Usa fprintf com o ponteiro 'saida_file'
-            fprintf(saida_file, "%s:%s<->%s\n",
-                   c.code,
-                   c.real_cnpj,
-                   c.received_cnpj);
+        container c = filtered_list[i];
+
+        if (c.test_cnpj == 0) {
+            fprintf(saida_file, "%s:%s<->%s\n", c.code, c.real_cnpj, c.received_cnpj);
         } else if (c.test_weight == 0) {
-            fprintf(saida_file, "%s:%.0fkg(%.0f%%)\n", 
-                   c.code,
-                   c.weight_diff_abs, 
-                   c.weight_diff_perc);
+            fprintf(saida_file, "%s:%ldkg(%.0f%%)\n",
+                    c.code,
+                    c.received_weight,
+                    round(c.weight_pct_received));
         }
     }
 
