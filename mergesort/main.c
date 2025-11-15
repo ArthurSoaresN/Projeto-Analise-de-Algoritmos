@@ -130,9 +130,7 @@ container* read_file(const char* filename, int* listsize_p) {
                     container_list[idx].received_weight);
 
             container_list[idx].weight_pct_received =
-                ((double)container_list[idx].received_weight /
-                     (double)container_list[idx].real_weight) *
-                100.0;
+                ((double)container_list[idx].received_weight * 100 / (double)container_list[idx].real_weight);
 
             double diff_perc =
                 (container_list[idx].weight_diff_abs /
@@ -273,8 +271,8 @@ int main(int argc, char* argv[]) {
         else if (c.test_weight == 0) {
             fprintf(out, "%s:%ldkg(%ld%%)\n",
                     c.code,
-                    c.received_weight,
-                    round_double(c.weight_pct_received));
+                    (c.received_weight - c.real_weight),
+                    ((int)c.weight_pct_received - 100));
         }
     }
 
