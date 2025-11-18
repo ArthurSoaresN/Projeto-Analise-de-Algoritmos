@@ -7,20 +7,19 @@ typedef struct {
     int prioridade;
     unsigned char* dados;
     int tamanho_dados;
+} package;
 
-} Pacote;
-
-void trocar(Pacote* a, Pacote* b) {
-    Pacote temp = *a;
+void trocar(package* a, package* b) {
+    package temp = *a;
     *a = *b;
     *b = temp;
 }
 
-void heapify(Pacote* V, int T, int i) {
-    while (1) { // Loop que substitui a recursão
-        int P = i;         // 'P' = Maior (Pai)
-        int E = 2 * i + 1; // Esquerdo
-        int D = 2 * i + 2; // Direito
+void heapify(package* V, int T, int i) {
+    while (1) {
+        int P = i;
+        int E = 2 * i + 1;
+        int D = 2 * i + 2;
 
         if (E < T && V[E].prioridade > V[P].prioridade) {
             P = E;
@@ -29,24 +28,22 @@ void heapify(Pacote* V, int T, int i) {
             P = D;
         }
 
-        // Se o 'Pai' já for o maior, o heap está correto
         if (P == i) {
-            break; // Sai do loop 'while'
+            break;
         }
         
-        // Se não, troca e continua o loop a partir do novo nó 'P'
         trocar(&V[i], &V[P]);
-        i = P; // Esta linha é a "chamada recursiva"
+        i = P;
     }
 }
 
-void construir_heap(Pacote* V, int n) {
+void construir_heap(package* V, int n) {
     for (int i = (n - 2) / 2; i >= 0; i--) {
         heapify(V, n, i);
     }
 }
 
-void heapsort(Pacote* V, int n) {
+void heapsort(package* V, int n) {
     construir_heap(V, n);
     for (int i = n - 1; i > 0; i--) {
         trocar(&V[0], &V[i]);
@@ -54,7 +51,7 @@ void heapsort(Pacote* V, int n) {
     }
 }
 
-void write_output(FILE* file, Pacote* buffer, int num_pacotes) {
+void write_output(FILE* file, package* buffer, int num_pacotes) {
     for (int i = 0; i < num_pacotes; i++) {
         fprintf(file, "|");
         for (int j = 0; j < buffer[i].tamanho_dados; j++) {
@@ -67,14 +64,14 @@ void write_output(FILE* file, Pacote* buffer, int num_pacotes) {
     fprintf(file, "|\n");
 }
 
-void clear_buffer(Pacote* buffer, int num_pacotes) {
+void clear_buffer(package* buffer, int num_pacotes) {
     for (int i = 0; i < num_pacotes; i++) {
         free(buffer[i].dados);
         buffer[i].dados = NULL;
     }
 }
 
-void processar_buffer_cheio(FILE* output_file, Pacote* buffer, int num_pacotes) {
+void processar_buffer_cheio(FILE* output_file, package* buffer, int num_pacotes) {
     heapsort(buffer, num_pacotes);
     write_output(output_file, buffer, num_pacotes);
     clear_buffer(buffer, num_pacotes);
@@ -107,7 +104,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Pacote* buffer_pacotes = (Pacote*)malloc(n_pacotes_total * sizeof(Pacote));
+    package* buffer_pacotes = (package*)malloc(n_pacotes_total * sizeof(package));
     if (!buffer_pacotes) {
         perror("Erro ao alocar buffer principal");
         fclose(input_file);
