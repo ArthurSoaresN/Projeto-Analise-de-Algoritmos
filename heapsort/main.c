@@ -17,20 +17,26 @@ void trocar(Pacote* a, Pacote* b) {
 }
 
 void heapify(Pacote* V, int T, int i) {
-    int P = i;
-    int E = 2 * i + 1;
-    int D = 2 * i + 2;
+    while (1) { // Loop que substitui a recursão
+        int P = i;         // 'P' = Maior (Pai)
+        int E = 2 * i + 1; // Esquerdo
+        int D = 2 * i + 2; // Direito
 
-    if (E < T && V[E].prioridade > V[P].prioridade) {
-        P = E;
-    }
-    if (D < T && V[D].prioridade > V[P].prioridade) {
-        P = D;
-    }
+        if (E < T && V[E].prioridade > V[P].prioridade) {
+            P = E;
+        }
+        if (D < T && V[D].prioridade > V[P].prioridade) {
+            P = D;
+        }
 
-    if (P != i) {
+        // Se o 'Pai' já for o maior, o heap está correto
+        if (P == i) {
+            break; // Sai do loop 'while'
+        }
+        
+        // Se não, troca e continua o loop a partir do novo nó 'P'
         trocar(&V[i], &V[P]);
-        heapify(V, T, P);
+        i = P; // Esta linha é a "chamada recursiva"
     }
 }
 
@@ -49,7 +55,7 @@ void heapsort(Pacote* V, int n) {
 }
 
 void write_output(FILE* file, Pacote* buffer, int num_pacotes) {
-    for (int i = num_pacotes - 1; i >= 0; i--) {
+    for (int i = 0; i < num_pacotes; i++) {
         fprintf(file, "|");
         for (int j = 0; j < buffer[i].tamanho_dados; j++) {
             fprintf(file, "%02X", buffer[i].dados[j]);
@@ -66,6 +72,12 @@ void clear_buffer(Pacote* buffer, int num_pacotes) {
         free(buffer[i].dados);
         buffer[i].dados = NULL;
     }
+}
+
+void processar_buffer_cheio(FILE* output_file, Pacote* buffer, int num_pacotes) {
+    heapsort(buffer, num_pacotes);
+    write_output(output_file, buffer, num_pacotes);
+    clear_buffer(buffer, num_pacotes);
 }
 
 int main(int argc, char *argv[]) {
@@ -88,7 +100,7 @@ int main(int argc, char *argv[]) {
 
     int n_pacotes_total = 0;
     int limite_bytes = 0;
-    if (fscanf(input_file, "%d %d\n", &n_pacotes_total, &limite_bytes) != 2) {
+    if (fscanf(input_file, "%d %d", &n_pacotes_total, &limite_bytes) != 2) {
         fprintf(stderr, "Erro ao ler Limite de Bytes).\n");
         fclose(input_file);
         fclose(output_file);
@@ -152,9 +164,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (pacotes_no_buffer > 0) {
-        heapsort(buffer_pacotes, pacotes_no_buffer);
-        write_output(output_file, buffer_pacotes, pacotes_no_buffer);
-        clear_buffer(buffer_pacotes, pacotes_no_buffer);
+        processar_buffer_cheio(output_file, buffer_pacotes, pacotes_no_buffer);
     }
 
     free(buffer_pacotes);
