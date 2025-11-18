@@ -3,10 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define LIMITE 512
+
 typedef struct {
     int prioridade;
-    unsigned char* dados;
     int tamanho_dados;
+    unsigned char dados[LIMITE];
 } package;
 
 void trocar(package* a, package* b) {
@@ -21,10 +23,10 @@ void heapify(package* V, int T, int i) {
         int E = 2 * i + 1;
         int D = 2 * i + 2;
 
-        if (E < T && V[E].prioridade > V[P].prioridade) {
+        if (E < T && V[E].prioridade < V[P].prioridade) {
             P = E;
         }
-        if (D < T && V[D].prioridade > V[P].prioridade) {
+        if (D < T && V[D].prioridade < V[P].prioridade) {
             P = D;
         }
 
@@ -62,19 +64,6 @@ void write_output(FILE* file, package* buffer, int num_pacotes) {
         }
     }
     fprintf(file, "|\n");
-}
-
-void clear_buffer(package* buffer, int num_pacotes) {
-    for (int i = 0; i < num_pacotes; i++) {
-        free(buffer[i].dados);
-        buffer[i].dados = NULL;
-    }
-}
-
-void processar_buffer_cheio(FILE* output_file, package* buffer, int num_pacotes) {
-    heapsort(buffer, num_pacotes);
-    write_output(output_file, buffer, num_pacotes);
-    clear_buffer(buffer, num_pacotes);
 }
 
 int main(int argc, char *argv[]) {
@@ -116,7 +105,6 @@ int main(int argc, char *argv[]) {
     int bytes_no_buffer = 0;
 
     for (int i = 0; i < n_pacotes_total; i++) {
-        
         int prioridade_atual;
         int tamanho_atual;
 
@@ -125,13 +113,9 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        if (bytes_no_buffer + tamanho_atual > limite_bytes && pacotes_no_buffer > 0) {
-            
+        if (pacotes_no_buffer > 0 && (bytes_no_buffer + tamanho_atual > limite_bytes)) {
             heapsort(buffer_pacotes, pacotes_no_buffer);
-            
             write_output(output_file, buffer_pacotes, pacotes_no_buffer);
-            
-            clear_buffer(buffer_pacotes, pacotes_no_buffer);
             
             pacotes_no_buffer = 0;
             bytes_no_buffer = 0;
@@ -140,12 +124,6 @@ int main(int argc, char *argv[]) {
         buffer_pacotes[pacotes_no_buffer].prioridade = prioridade_atual;
         buffer_pacotes[pacotes_no_buffer].tamanho_dados = tamanho_atual;
         
-        buffer_pacotes[pacotes_no_buffer].dados = (unsigned char*)malloc(tamanho_atual * sizeof(unsigned char));
-        if (!buffer_pacotes[pacotes_no_buffer].dados) {
-            perror("Erro ao alocar memoria para os bytes do pacote");
-            break;
-        }
-
         for (int j = 0; j < tamanho_atual; j++) {
             unsigned int byte_lido;
             if (fscanf(input_file, "%x", &byte_lido) != 1) { 
@@ -161,7 +139,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (pacotes_no_buffer > 0) {
-        processar_buffer_cheio(output_file, buffer_pacotes, pacotes_no_buffer);
+        heapsort(buffer_pacotes, pacotes_no_buffer);
+        write_output(output_file, buffer_pacotes, pacotes_no_buffer);
     }
 
     free(buffer_pacotes);
