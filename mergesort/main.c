@@ -32,10 +32,50 @@ typedef struct {
     int discrepancy;
 } container;
 
-int compare_by_code(const void *a, const void *b) {
-    container *cA = (container *)a;
-    container *cB = (container *)b;
-    return strcmp(cA->code, cB->code);
+void intercalar_codigo(container* S, int i, int m, int j) {
+    int i1 = i, i2 = m + 1, k = 0;
+    int tam = j - i + 1;
+    container* aux = malloc(tam * sizeof(container));
+    if (!aux) exit(1);
+
+    while (i1 <= m && i2 <= j) {
+        if (strcmp(S[i1].code, S[i2].code) <= 0)
+            aux[k++] = S[i1++];
+        else
+            aux[k++] = S[i2++];
+    }
+    while (i1 <= m) aux[k++] = S[i1++];
+    while (i2 <= j) aux[k++] = S[i2++];
+    for (k = 0; k < tam; k++) S[i + k] = aux[k];
+    free(aux);
+}
+
+void mergesort_por_codigo(container* list, int start, int end) {
+    if (start < end) {
+        int m = start + (end - start) / 2;
+        mergesort_por_codigo(list, start, m);
+        mergesort_por_codigo(list, m + 1, end);
+        intercalar_codigo(list, start, m, end);
+    }
+}
+
+container* busca_binaria_manual(container* list, int size, const char* code_buscado) {
+    int inicio = 0;
+    int fim = size - 1;
+
+    while (inicio <= fim) {
+        int meio = inicio + (fim - inicio) / 2;
+        int cmp = strcmp(list[meio].code, code_buscado);
+
+        if (cmp == 0) {
+            return &list[meio];
+        } else if (cmp < 0) {
+            inicio = meio + 1;
+        } else {
+            fim = meio - 1;
+        }
+    }
+    return NULL;
 }
 
 container* read_file(const char* filename, int* listsize_p) {
@@ -70,10 +110,9 @@ container* read_file(const char* filename, int* listsize_p) {
                 &container_list[i].real_weight) != 3) 
         {
             fprintf(stderr, "Erro leitura gabarito na linha %d\n", i+1);
-            free(container_list); 
-            fclose(file); 
-            return NULL;
+            free(container_list); fclose(file); return NULL;
         }
+        
         container_list[i].received_cnpj[0] = '\0';
         container_list[i].received_weight = -1;
         container_list[i].test_cnpj = 1;
@@ -84,7 +123,7 @@ container* read_file(const char* filename, int* listsize_p) {
         container_list[i].discrepancy = 0;
     }
 
-    qsort(container_list, size_list, sizeof(container), compare_by_code);
+    mergesort_por_codigo(container_list, 0, size_list - 1);
 
     int n_situation = 0;
     if (fscanf(file, "%d\n", &n_situation) != 1) {
@@ -94,23 +133,16 @@ container* read_file(const char* filename, int* listsize_p) {
     char temp_code[CODE_LENGTH];
     char temp_cnpj[CNPJ_LENGTH];
     long int temp_weight;
-    container key; 
 
     for (int i = 0; i < n_situation; i++) {
         if (fscanf(file, "%11s %19s %ld\n",
-                   temp_code, 
-                   temp_cnpj, 
-                   &temp_weight) != 3) 
+                   temp_code, temp_cnpj, &temp_weight) != 3) 
         {
-            fprintf(stderr, "Erro leitura situação na linha %d\n", i+1);
-             free(container_list); 
-             fclose(file); 
-             return NULL;
+             fprintf(stderr, "Erro leitura situação\n");
+             free(container_list); fclose(file); return NULL;
         }
 
-        strcpy(key.code, temp_code);
-
-        container *found = (container*) bsearch(&key, container_list, size_list, sizeof(container), compare_by_code);
+        container *found = busca_binaria_manual(container_list, size_list, temp_code);
 
         if (found != NULL) {
             strcpy(found->received_cnpj, temp_cnpj);
@@ -136,7 +168,7 @@ container* read_file(const char* filename, int* listsize_p) {
                     found->test_weight = 1;
                 }
             } else {
-                if (found->received_weight != 0) {
+                 if (found->received_weight != 0) {
                     found->test_weight = 0;
                     found->discrepancy = 1;
                     found->weight_diff_abs = (double)abs_long_diff(found->real_weight, found->received_weight);
@@ -147,6 +179,7 @@ container* read_file(const char* filename, int* listsize_p) {
                     found->weight_pct_received = 0.0;
                 }
             }
+
             if (found->test_cnpj == 0 || found->test_weight == 0) {
                 found->discrepancy = 1;
             }
@@ -195,7 +228,6 @@ int compare_containers(const container* a, const container* b) {
 void intercalar(container* S, int i, int m, int j) {
     int i1 = i, i2 = m + 1, k = 0;
     int tam = j - i + 1;
-
     container* aux = malloc(tam * sizeof(container));
     if (!aux) exit(1);
 
@@ -205,12 +237,9 @@ void intercalar(container* S, int i, int m, int j) {
         else
             aux[k++] = S[i2++];
     }
-
     while (i1 <= m) aux[k++] = S[i1++];
     while (i2 <= j) aux[k++] = S[i2++];
-
     for (k = 0; k < tam; k++) S[i + k] = aux[k];
-
     free(aux);
 }
 
@@ -237,7 +266,7 @@ int main(int argc, char* argv[]) {
     int discrepancy_count = 0;
     container* filtered = filter_list(list, container_count, &discrepancy_count);
     
-    free(list);
+    free(list); 
 
     if (!filtered || discrepancy_count == 0) {
         FILE* out = fopen(argv[2], "w");
