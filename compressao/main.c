@@ -20,6 +20,7 @@ typedef struct {
 typedef struct MinHeapNode {
     unsigned char dado;
     unsigned int freq;
+    int ordem;
     struct MinHeapNode *esq, *dir;
 } MinHeapNode;
 
@@ -34,7 +35,7 @@ void free_input(SequenciaInput *lista, int qtd);
 CompressaoResult executar_RLE(unsigned char *dados, int n);
 CompressaoResult executar_Huffman(unsigned char *dados, int n);
 void adicionar_bit(unsigned char *buffer, int *bit_count, char bit, char *destino, int *write_idx, int *total_bytes);
-MinHeapNode* novoNo(unsigned char dado, unsigned freq);
+MinHeapNode* novoNo(unsigned char dado, unsigned freq, int ordem);
 MinHeap* criarMinHeap(unsigned capacidade);
 void minHeapify(MinHeap* minHeap, int idx);
 MinHeapNode* extractMin(MinHeap* minHeap);
@@ -43,6 +44,9 @@ int isSizeOne(MinHeap* minHeap);
 MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int tamanho);
 void gerarCodigos(MinHeapNode* raiz, int arr[], int top, char tabelaCodigos[256][256]);
 void liberarArvore(MinHeapNode* raiz);
+void swapMinHeapNode(MinHeapNode** a, MinHeapNode** b);
+
+static int ordem_global = 0;
 
 SequenciaInput* read_file(const char *filename, int *qtd_out) {
     FILE *fin = fopen(filename, "r");
@@ -143,6 +147,8 @@ CompressaoResult executar_Huffman(unsigned char *dados, int n) {
         return res;
     }
 
+    ordem_global = 0;
+
     int freq[256] = {0};
     int i = 0;          
     while (i < n) {    
@@ -194,11 +200,12 @@ CompressaoResult executar_Huffman(unsigned char *dados, int n) {
     return res;
 }
 
-MinHeapNode* novoNo(unsigned char dado, unsigned freq) {
+MinHeapNode* novoNo(unsigned char dado, unsigned freq, int ordem) {
     MinHeapNode* temp = (MinHeapNode*)malloc(sizeof(MinHeapNode));
     temp->esq = temp->dir = NULL;
     temp->dado = dado;
     temp->freq = freq;
+    temp->ordem = ordem;
     return temp;
 }
 
@@ -225,7 +232,7 @@ void minHeapify(MinHeap* minHeap, int idx) {
     if (esq < tam) {
         if (minHeap->array[esq]->freq < minHeap->array[menor]->freq ||
            (minHeap->array[esq]->freq == minHeap->array[menor]->freq && 
-            minHeap->array[esq]->dado < minHeap->array[menor]->dado)) {
+            minHeap->array[esq]->ordem < minHeap->array[menor]->ordem)) {
             menor = esq;
         }
     }
@@ -233,7 +240,7 @@ void minHeapify(MinHeap* minHeap, int idx) {
     if (dir < tam) {
         if (minHeap->array[dir]->freq < minHeap->array[menor]->freq ||
            (minHeap->array[dir]->freq == minHeap->array[menor]->freq && 
-            minHeap->array[dir]->dado < minHeap->array[menor]->dado)) {
+            minHeap->array[dir]->ordem < minHeap->array[menor]->ordem)) {
             menor = dir;
         }
     }
@@ -257,7 +264,7 @@ void insertMinHeap(MinHeap* minHeap, MinHeapNode* minHeapNode) {
     int i = minHeap->tamanho - 1;
     while (i && (minHeapNode->freq < minHeap->array[(i - 1) / 2]->freq ||
                 (minHeapNode->freq == minHeap->array[(i - 1) / 2]->freq && 
-                 minHeapNode->dado < minHeap->array[(i - 1) / 2]->dado))) {
+                 minHeapNode->ordem < minHeap->array[(i - 1) / 2]->ordem))) {
         minHeap->array[i] = minHeap->array[(i - 1) / 2];
         i = (i - 1) / 2;
     }
@@ -273,7 +280,7 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
     MinHeap* minHeap = criarMinHeap(tamanho);
 
     for (int i = 0; i < tamanho; ++i) {
-        minHeap->array[i] = novoNo(dados[i], freq[i]);
+        minHeap->array[i] = novoNo(dados[i], freq[i], ordem_global++);
     }
     minHeap->tamanho = tamanho;
 
@@ -286,7 +293,7 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
     while (!isSizeOne(minHeap)) {
         esq = extractMin(minHeap);
         dir = extractMin(minHeap);
-        top = novoNo('$', esq->freq + dir->freq);
+        top = novoNo('$', esq->freq + dir->freq, ordem_global++);
         top->esq = esq;
         top->dir = dir;
         insertMinHeap(minHeap, top);
