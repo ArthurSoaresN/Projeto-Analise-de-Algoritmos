@@ -44,9 +44,6 @@ int isSizeOne(MinHeap* minHeap);
 MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int tamanho);
 void gerarCodigos(MinHeapNode* raiz, int arr[], int top, char tabelaCodigos[256][256]);
 void liberarArvore(MinHeapNode* raiz);
-void swapMinHeapNode(MinHeapNode** a, MinHeapNode** b);
-
-static int ordem_global = 0;
 
 SequenciaInput* read_file(const char *filename, int *qtd_out) {
     FILE *fin = fopen(filename, "r");
@@ -146,8 +143,6 @@ CompressaoResult executar_Huffman(unsigned char *dados, int n) {
         res.taxa_compressao = 0.0;
         return res;
     }
-
-    ordem_global = 0;
 
     int freq[256] = {0};
     int i = 0;          
@@ -280,7 +275,7 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
     MinHeap* minHeap = criarMinHeap(tamanho);
 
     for (int i = 0; i < tamanho; ++i) {
-        minHeap->array[i] = novoNo(dados[i], freq[i], ordem_global++);
+        minHeap->array[i] = novoNo(dados[i], freq[i], i);
     }
     minHeap->tamanho = tamanho;
 
@@ -290,10 +285,12 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
         }
     }
 
+    int proxima_ordem = tamanho; 
+
     while (!isSizeOne(minHeap)) {
         esq = extractMin(minHeap);
         dir = extractMin(minHeap);
-        top = novoNo('$', esq->freq + dir->freq, ordem_global++);
+        top = novoNo('$', esq->freq + dir->freq, proxima_ordem++);
         top->esq = esq;
         top->dir = dir;
         insertMinHeap(minHeap, top);
