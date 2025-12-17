@@ -6,9 +6,9 @@
 #define MAX_SIZE 10005
 
 typedef struct {
-    int id;
-    int tamanho;
-    unsigned char *dados;
+    int id;               
+    int tamanho;          
+    unsigned char *dados; 
 } SequenciaInput;
 
 typedef struct {
@@ -34,7 +34,6 @@ void free_input(SequenciaInput *lista, int qtd);
 CompressaoResult executar_RLE(unsigned char *dados, int n);
 CompressaoResult executar_Huffman(unsigned char *dados, int n);
 void adicionar_bit(unsigned char *buffer, int *bit_count, char bit, char *destino, int *write_idx, int *total_bytes);
-
 MinHeapNode* novoNo(unsigned char dado, unsigned freq);
 MinHeap* criarMinHeap(unsigned capacidade);
 void minHeapify(MinHeap* minHeap, int idx);
@@ -56,12 +55,15 @@ SequenciaInput* read_file(const char *filename, int *qtd_out) {
     }
 
     *qtd_out = num_sequencias;
+
     SequenciaInput *lista = (SequenciaInput *)malloc(num_sequencias * sizeof(SequenciaInput));
 
     for (int i = 0; i < num_sequencias; i++) {
         lista[i].id = i;
         fscanf(fin, "%d", &lista[i].tamanho);
+
         lista[i].dados = (unsigned char *)malloc((lista[i].tamanho + 10) * sizeof(unsigned char));
+
         for (int k = 0; k < lista[i].tamanho; k++) {
             unsigned int temp_val;
             fscanf(fin, "%x", &temp_val);
@@ -83,28 +85,35 @@ void free_input(SequenciaInput *lista, int qtd) {
 
 CompressaoResult executar_RLE(unsigned char *dados, int n) {
     CompressaoResult res;
-    res.hex_string = (char *)calloc(n * 4 + 1, sizeof(char));
+    res.hex_string = (char *)calloc(n * 4 + 100, sizeof(char)); 
+    
     if (n == 0) {
         res.size_bytes = 0;
         res.taxa_compressao = 0.0;
         return res;
     }
+
     int cursor = 0;
-    int offset_str = 0;
+    int offset_str = 0; 
     int total_bytes = 0;
+
     while (cursor < n) {
         unsigned char valor = dados[cursor];
         int repeticoes = 1;
         int proximo = cursor + 1;
+
         while (proximo < n && dados[proximo] == valor) {
             if (repeticoes >= 255) break;
             repeticoes++;
             proximo++;
         }
+
         offset_str += sprintf(res.hex_string + offset_str, "%02X%02X", repeticoes, valor);
         total_bytes += 2;
-        cursor = proximo;
+        
+        cursor = proximo; 
     }
+
     res.size_bytes = total_bytes;
     res.taxa_compressao = ((float)total_bytes / n) * 100.0;
     return res;
@@ -125,19 +134,22 @@ void adicionar_bit(unsigned char *buffer, int *bit_count, char bit, char *destin
 
 CompressaoResult executar_Huffman(unsigned char *dados, int n) {
     CompressaoResult res;
-    res.hex_string = (char *)malloc(n * 8 + 100);
+    res.hex_string = (char *)malloc(n * 8 + 200); 
+
     if (n == 0) {
         res.size_bytes = 0;
         res.hex_string[0] = '\0';
         res.taxa_compressao = 0.0;
         return res;
     }
+
     int freq[256] = {0};
-    int i = 0;
-    while (i < n) {
+    int i = 0;          
+    while (i < n) {    
         freq[dados[i]]++;
-        i++;
+        i++;          
     }
+
     unsigned char arr_chars[256];
     int arr_freq[256];
     int size = 0;
@@ -148,15 +160,19 @@ CompressaoResult executar_Huffman(unsigned char *dados, int n) {
             size++;
         }
     }
+
     MinHeapNode* raiz = construirArvoreHuffman(arr_chars, arr_freq, size);
+
     char tabelaCodigos[256][256];
     int arr_aux[256];
     memset(tabelaCodigos, 0, sizeof(tabelaCodigos));
     gerarCodigos(raiz, arr_aux, 0, tabelaCodigos);
+
     unsigned char buffer = 0;
     int bit_count = 0;
     int write_idx = 0;
     int total_bytes = 0;
+
     for (int k = 0; k < n; k++) {
         char *codigo = tabelaCodigos[dados[k]];
         int p = 0;
@@ -165,12 +181,15 @@ CompressaoResult executar_Huffman(unsigned char *dados, int n) {
             p++;
         }
     }
+
     if (bit_count > 0) {
         write_idx += sprintf(&res.hex_string[write_idx], "%02X", buffer);
         total_bytes++;
     }
+
     res.size_bytes = total_bytes;
     res.taxa_compressao = ((float)res.size_bytes / n) * 100.0;
+
     liberarArvore(raiz);
     return res;
 }
@@ -236,7 +255,9 @@ MinHeapNode* extractMin(MinHeap* minHeap) {
 void insertMinHeap(MinHeap* minHeap, MinHeapNode* minHeapNode) {
     ++minHeap->tamanho;
     int i = minHeap->tamanho - 1;
-    while (i && minHeapNode->freq < minHeap->array[(i - 1) / 2]->freq) {
+    while (i && (minHeapNode->freq < minHeap->array[(i - 1) / 2]->freq ||
+                (minHeapNode->freq == minHeap->array[(i - 1) / 2]->freq && 
+                 minHeapNode->dado < minHeap->array[(i - 1) / 2]->dado))) {
         minHeap->array[i] = minHeap->array[(i - 1) / 2];
         i = (i - 1) / 2;
     }
@@ -250,8 +271,18 @@ int isSizeOne(MinHeap* minHeap) {
 MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int tamanho) {
     MinHeapNode *esq, *dir, *top;
     MinHeap* minHeap = criarMinHeap(tamanho);
-    for (int i = 0; i < tamanho; ++i)
-        insertMinHeap(minHeap, novoNo(dados[i], freq[i]));
+
+    for (int i = 0; i < tamanho; ++i) {
+        minHeap->array[i] = novoNo(dados[i], freq[i]);
+    }
+    minHeap->tamanho = tamanho;
+
+    if (tamanho > 1) {
+        for (int i = ((int)minHeap->tamanho - 2) / 2; i >= 0; --i) {
+            minHeapify(minHeap, i);
+        }
+    }
+
     while (!isSizeOne(minHeap)) {
         esq = extractMin(minHeap);
         dir = extractMin(minHeap);
@@ -260,6 +291,7 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
         top->dir = dir;
         insertMinHeap(minHeap, top);
     }
+
     MinHeapNode* raiz = extractMin(minHeap);
     free(minHeap->array);
     free(minHeap);
@@ -276,7 +308,7 @@ void gerarCodigos(MinHeapNode* raiz, int arr[], int top, char tabelaCodigos[256]
         gerarCodigos(raiz->dir, arr, top + 1, tabelaCodigos);
     }
     if (!(raiz->esq) && !(raiz->dir)) {
-        if (top == 0) {
+        if (top == 0) { 
             tabelaCodigos[raiz->dado][0] = '0';
             tabelaCodigos[raiz->dado][1] = '\0';
         } else {
@@ -302,21 +334,27 @@ int main(int argc, char *argv[]) {
         printf("Uso: %s <entrada.txt> <saida.txt>\n", argv[0]);
         return 1;
     }
+
     int num_sequencias = 0;
     SequenciaInput *lista_sequencias = read_file(argv[1], &num_sequencias);
+
     if (!lista_sequencias) {
         printf("Erro ao ler arquivo ou arquivo vazio.\n");
         return 1;
     }
+
     FILE *fout = fopen(argv[2], "w");
     if (!fout) {
         free_input(lista_sequencias, num_sequencias);
         return 1;
     }
+
     for (int i = 0; i < num_sequencias; i++) {
         SequenciaInput atual = lista_sequencias[i];
+
         CompressaoResult rle = executar_RLE(atual.dados, atual.tamanho);
         CompressaoResult huf = executar_Huffman(atual.dados, atual.tamanho);
+
         if (huf.size_bytes == rle.size_bytes) {
             fprintf(fout, "%d->HUF(%.2f%%)=%s\n", atual.id, huf.taxa_compressao, huf.hex_string);
             fprintf(fout, "%d->RLE(%.2f%%)=%s\n", atual.id, rle.taxa_compressao, rle.hex_string);
@@ -327,10 +365,13 @@ int main(int argc, char *argv[]) {
         else {
             fprintf(fout, "%d->RLE(%.2f%%)=%s\n", atual.id, rle.taxa_compressao, rle.hex_string);
         }
+
         free(rle.hex_string);
         free(huf.hex_string);
     }
+
     fclose(fout);
     free_input(lista_sequencias, num_sequencias);
+
     return 0;
 }
