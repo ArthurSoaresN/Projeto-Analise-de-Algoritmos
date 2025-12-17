@@ -202,12 +202,23 @@ void minHeapify(MinHeap* minHeap, int idx) {
     int esq = 2 * idx + 1;
     int dir = 2 * idx + 2;
     int tam = minHeap->tamanho;
-    if (dir < tam) {
-        if (minHeap->array[dir]->freq < minHeap->array[menor]->freq) menor = dir;
-    }
+
     if (esq < tam) {
-        if (minHeap->array[esq]->freq < minHeap->array[menor]->freq) menor = esq;
+        if (minHeap->array[esq]->freq < minHeap->array[menor]->freq ||
+           (minHeap->array[esq]->freq == minHeap->array[menor]->freq && 
+            minHeap->array[esq]->dado < minHeap->array[menor]->dado)) {
+            menor = esq;
+        }
     }
+
+    if (dir < tam) {
+        if (minHeap->array[dir]->freq < minHeap->array[menor]->freq ||
+           (minHeap->array[dir]->freq == minHeap->array[menor]->freq && 
+            minHeap->array[dir]->dado < minHeap->array[menor]->dado)) {
+            menor = dir;
+        }
+    }
+
     if (menor != idx) {
         swapMinHeapNode(&minHeap->array[menor], &minHeap->array[idx]);
         minHeapify(minHeap, menor);
