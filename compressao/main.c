@@ -1,228 +1,85 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
-#define MAX_SIZE 10005
-
-typedef struct {
-    int id;
-    int tamanho;
-    unsigned char *dados;
-} SequenciaInput;
-
-typedef struct {
-    int size_bytes;
-    char *hex_string;
-    float taxa_compressao;
-} CompressaoResult;
-
-typedef struct MinHeapNode {
+// Estruturas para Huffman
+struct MinHeapNode {
     unsigned char dado;
-    unsigned int freq;
+    unsigned freq;
     struct MinHeapNode *esq, *dir;
-} MinHeapNode;
+};
 
-typedef struct MinHeap {
-    unsigned int tamanho;
-    unsigned int capacidade;
-    MinHeapNode **array;
-} MinHeap;
+struct MinHeap {
+    unsigned tamanho;
+    unsigned capacidade;
+    struct MinHeapNode** array;
+};
 
-SequenciaInput* read_file(const char *filename, int *qtd_out);
-void free_input(SequenciaInput *lista, int qtd);
-CompressaoResult executar_RLE(unsigned char *dados, int n);
-CompressaoResult executar_Huffman(unsigned char *dados, int n);
-void adicionar_bit(unsigned char *buffer, int *bit_count, char bit, char *destino, int *write_idx, int *total_bytes);
+// Estrutura para o resultado
+typedef struct {
+    int size;
+    char *hex_code;
+    float taxa;
+} Result;
 
-MinHeapNode* novoNo(unsigned char dado, unsigned freq);
-MinHeap* criarMinHeap(unsigned capacidade);
-void minHeapify(MinHeap* minHeap, int idx);
-MinHeapNode* extractMin(MinHeap* minHeap);
-void insertMinHeap(MinHeap* minHeap, MinHeapNode* minHeapNode);
-int isSizeOne(MinHeap* minHeap);
-MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int tamanho);
-void gerarCodigos(MinHeapNode* raiz, int arr[], int top, char tabelaCodigos[256][256]);
-void liberarArvore(MinHeapNode* raiz);
-
-SequenciaInput* read_file(const char *filename, int *qtd_out) {
-    FILE *fin = fopen(filename, "r");
-    if (!fin) return NULL;
-
-    int num_sequencias;
-    if (fscanf(fin, "%d", &num_sequencias) != 1) {
-        fclose(fin);
-        return NULL;
-    }
-
-    *qtd_out = num_sequencias;
-    SequenciaInput *lista = (SequenciaInput *)malloc(num_sequencias * sizeof(SequenciaInput));
-
-    for (int i = 0; i < num_sequencias; i++) {
-        lista[i].id = i;
-        fscanf(fin, "%d", &lista[i].tamanho);
-        lista[i].dados = (unsigned char *)malloc((lista[i].tamanho + 10) * sizeof(unsigned char));
-        for (int k = 0; k < lista[i].tamanho; k++) {
-            unsigned int temp_val;
-            fscanf(fin, "%x", &temp_val);
-            lista[i].dados[k] = (unsigned char)temp_val;
-        }
-    }
-
-    fclose(fin);
-    return lista;
-}
-
-void free_input(SequenciaInput *lista, int qtd) {
-    if (!lista) return;
-    for (int i = 0; i < qtd; i++) {
-        free(lista[i].dados);
-    }
-    free(lista);
-}
-
-CompressaoResult executar_RLE(unsigned char *dados, int n) {
-    CompressaoResult res;
-    res.hex_string = (char *)calloc(n * 4 + 1, sizeof(char));
-    if (n == 0) {
-        res.size_bytes = 0;
-        res.taxa_compressao = 0.0;
-        return res;
-    }
-    int cursor = 0;
-    int offset_str = 0;
-    int total_bytes = 0;
-    while (cursor < n) {
-        unsigned char valor = dados[cursor];
-        int repeticoes = 1;
-        int proximo = cursor + 1;
-        while (proximo < n && dados[proximo] == valor) {
-            if (repeticoes >= 255) break;
-            repeticoes++;
-            proximo++;
-        }
-        offset_str += sprintf(res.hex_string + offset_str, "%02X%02X", repeticoes, valor);
-        total_bytes += 2;
-        cursor = proximo;
-    }
-    res.size_bytes = total_bytes;
-    res.taxa_compressao = ((float)total_bytes / n) * 100.0;
-    return res;
-}
-
-void adicionar_bit(unsigned char *buffer, int *bit_count, char bit, char *destino, int *write_idx, int *total_bytes) {
-    if (bit == '1') {
-        *buffer = *buffer | (1 << (7 - *bit_count));
-    }
-    (*bit_count)++;
-    if (*bit_count == 8) {
-        *write_idx += sprintf(destino + *write_idx, "%02X", *buffer);
-        (*total_bytes)++;
-        *buffer = 0;
-        *bit_count = 0;
-    }
-}
-
-CompressaoResult executar_Huffman(unsigned char *dados, int n) {
-    CompressaoResult res;
-    res.hex_string = (char *)malloc(n * 8 + 100);
-    if (n == 0) {
-        res.size_bytes = 0;
-        res.hex_string[0] = '\0';
-        res.taxa_compressao = 0.0;
-        return res;
-    }
-    int freq[256] = {0};
-    int i = 0;
-    while (i < n) {
-        freq[dados[i]]++;
-        i++;
-    }
-    unsigned char arr_chars[256];
-    int arr_freq[256];
-    int size = 0;
-    for (int k = 0; k < 256; k++) {
-        if (freq[k] > 0) {
-            arr_chars[size] = (unsigned char)k;
-            arr_freq[size] = freq[k];
-            size++;
-        }
-    }
-    MinHeapNode* raiz = construirArvoreHuffman(arr_chars, arr_freq, size);
-    char tabelaCodigos[256][256];
-    int arr_aux[256];
-    memset(tabelaCodigos, 0, sizeof(tabelaCodigos));
-    gerarCodigos(raiz, arr_aux, 0, tabelaCodigos);
-    unsigned char buffer = 0;
-    int bit_count = 0;
-    int write_idx = 0;
-    int total_bytes = 0;
-    for (int k = 0; k < n; k++) {
-        char *codigo = tabelaCodigos[dados[k]];
-        int p = 0;
-        while (codigo[p] != '\0') {
-            adicionar_bit(&buffer, &bit_count, codigo[p], res.hex_string, &write_idx, &total_bytes);
-            p++;
-        }
-    }
-    if (bit_count > 0) {
-        write_idx += sprintf(&res.hex_string[write_idx], "%02X", buffer);
-        total_bytes++;
-    }
-    res.size_bytes = total_bytes;
-    res.taxa_compressao = ((float)res.size_bytes / n) * 100.0;
-    liberarArvore(raiz);
-    return res;
-}
-
-MinHeapNode* novoNo(unsigned char dado, unsigned freq) {
-    MinHeapNode* temp = (MinHeapNode*)malloc(sizeof(MinHeapNode));
+// Funções auxiliares de Huffman
+struct MinHeapNode* novoNo(unsigned char dado, unsigned freq) {
+    struct MinHeapNode* temp = (struct MinHeapNode*)malloc(sizeof(struct MinHeapNode));
     temp->esq = temp->dir = NULL;
     temp->dado = dado;
     temp->freq = freq;
     return temp;
 }
 
-MinHeap* criarMinHeap(unsigned capacidade) {
-    MinHeap* minHeap = (MinHeap*)malloc(sizeof(MinHeap));
+struct MinHeap* createMinHeap(unsigned capacidade) {
+    struct MinHeap* minHeap = (struct MinHeap*)malloc(sizeof(struct MinHeap));
     minHeap->tamanho = 0;
     minHeap->capacidade = capacidade;
-    minHeap->array = (MinHeapNode**)malloc(minHeap->capacidade * sizeof(MinHeapNode*));
+    minHeap->array = (struct MinHeapNode**)malloc(minHeap->capacidade * sizeof(struct MinHeapNode*));
     return minHeap;
 }
 
-void swapMinHeapNode(MinHeapNode** a, MinHeapNode** b) {
-    MinHeapNode* t = *a;
+void swapMinHeapNode(struct MinHeapNode** a, struct MinHeapNode** b) {
+    struct MinHeapNode* t = *a;
     *a = *b;
     *b = t;
 }
 
-void minHeapify(MinHeap* minHeap, int idx) {
+// CORREÇÃO 1: Adicionado critério de desempate pelo valor do dado (byte)
+void minHeapify(struct MinHeap* minHeap, int idx) {
     int menor = idx;
     int esq = 2 * idx + 1;
     int dir = 2 * idx + 2;
-    int tam = minHeap->tamanho;
-    if (dir < tam) {
-        if (minHeap->array[dir]->freq < minHeap->array[menor]->freq) menor = dir;
+
+    if (esq < minHeap->tamanho) {
+        if (minHeap->array[esq]->freq < minHeap->array[menor]->freq ||
+           (minHeap->array[esq]->freq == minHeap->array[menor]->freq && minHeap->array[esq]->dado < minHeap->array[menor]->dado)) {
+            menor = esq;
+        }
     }
-    if (esq < tam) {
-        if (minHeap->array[esq]->freq < minHeap->array[menor]->freq) menor = esq;
+
+    if (dir < minHeap->tamanho) {
+        if (minHeap->array[dir]->freq < minHeap->array[menor]->freq ||
+           (minHeap->array[dir]->freq == minHeap->array[menor]->freq && minHeap->array[dir]->dado < minHeap->array[menor]->dado)) {
+            menor = dir;
+        }
     }
+
     if (menor != idx) {
         swapMinHeapNode(&minHeap->array[menor], &minHeap->array[idx]);
         minHeapify(minHeap, menor);
     }
 }
 
-MinHeapNode* extractMin(MinHeap* minHeap) {
-    MinHeapNode* temp = minHeap->array[0];
+struct MinHeapNode* extractMin(struct MinHeap* minHeap) {
+    struct MinHeapNode* temp = minHeap->array[0];
     minHeap->array[0] = minHeap->array[minHeap->tamanho - 1];
     --minHeap->tamanho;
     minHeapify(minHeap, 0);
     return temp;
 }
 
-void insertMinHeap(MinHeap* minHeap, MinHeapNode* minHeapNode) {
+void insertMinHeap(struct MinHeap* minHeap, struct MinHeapNode* minHeapNode) {
     ++minHeap->tamanho;
     int i = minHeap->tamanho - 1;
     while (i && minHeapNode->freq < minHeap->array[(i - 1) / 2]->freq) {
@@ -232,15 +89,27 @@ void insertMinHeap(MinHeap* minHeap, MinHeapNode* minHeapNode) {
     minHeap->array[i] = minHeapNode;
 }
 
-int isSizeOne(MinHeap* minHeap) {
+int isSizeOne(struct MinHeap* minHeap) {
     return (minHeap->tamanho == 1);
 }
 
-MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int tamanho) {
-    MinHeapNode *esq, *dir, *top;
-    MinHeap* minHeap = criarMinHeap(tamanho);
-    for (int i = 0; i < tamanho; ++i)
-        insertMinHeap(minHeap, novoNo(dados[i], freq[i]));
+// CORREÇÃO 2: Implementação do Build-Heap (Heapify Reverso O(N))
+struct MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int size) {
+    struct MinHeapNode *esq, *dir, *top;
+    struct MinHeap* minHeap = createMinHeap(size);
+
+    // Passo 1: Preencher o array diretamente (sem insertMinHeap)
+    for (int i = 0; i < size; ++i) {
+        minHeap->array[i] = novoNo(dados[i], freq[i]);
+    }
+    minHeap->tamanho = size;
+
+    // Passo 2: Construir o Heap de baixo para cima (Heapify Reverso)
+    for (int i = (minHeap->tamanho - 2) / 2; i >= 0; --i) {
+        minHeapify(minHeap, i);
+    }
+
+    // Passo 3: Construir a árvore
     while (!isSizeOne(minHeap)) {
         esq = extractMin(minHeap);
         dir = extractMin(minHeap);
@@ -249,77 +118,167 @@ MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int taman
         top->dir = dir;
         insertMinHeap(minHeap, top);
     }
-    MinHeapNode* raiz = extractMin(minHeap);
-    free(minHeap->array);
-    free(minHeap);
-    return raiz;
+    return extractMin(minHeap);
 }
 
-void gerarCodigos(MinHeapNode* raiz, int arr[], int top, char tabelaCodigos[256][256]) {
+void armazenarCodigos(struct MinHeapNode* raiz, int arr[], int top, char** codigos) {
     if (raiz->esq) {
         arr[top] = 0;
-        gerarCodigos(raiz->esq, arr, top + 1, tabelaCodigos);
+        armazenarCodigos(raiz->esq, arr, top + 1, codigos);
     }
     if (raiz->dir) {
         arr[top] = 1;
-        gerarCodigos(raiz->dir, arr, top + 1, tabelaCodigos);
+        armazenarCodigos(raiz->dir, arr, top + 1, codigos);
     }
     if (!(raiz->esq) && !(raiz->dir)) {
-        if (top == 0) {
-            tabelaCodigos[raiz->dado][0] = '0';
-            tabelaCodigos[raiz->dado][1] = '\0';
-        } else {
-            int k = 0;
-            while (k < top) {
-                tabelaCodigos[raiz->dado][k] = arr[k] + '0';
-                k++;
+        codigos[raiz->dado] = (char*)malloc((top + 1) * sizeof(char));
+        for (int i = 0; i < top; i++) {
+            codigos[raiz->dado][i] = arr[i] + '0';
+        }
+        codigos[raiz->dado][top] = '\0';
+    }
+}
+
+// Bit packing auxiliar
+void add_bit(unsigned char *buffer, int *bit_count, char bit, char *hex_out, int *hex_idx) {
+    if (bit == '1') {
+        *buffer |= (1 << (7 - *bit_count));
+    }
+    (*bit_count)++;
+    if (*bit_count == 8) {
+        hex_idx += sprintf(hex_out + *hex_idx, "%02X", *buffer);
+        *buffer = 0;
+        *bit_count = 0;
+    }
+}
+
+Result processarHuffman(unsigned char* buffer, int n) {
+    Result res;
+    if (n == 0) {
+        res.size = 0;
+        res.hex_code = strdup("");
+        res.taxa = 0.0;
+        return res;
+    }
+
+    int freq[256] = {0};
+    for (int i = 0; i < n; i++) freq[buffer[i]]++;
+
+    unsigned char dados[256];
+    int freqs[256];
+    int size = 0;
+    for (int i = 0; i < 256; i++) {
+        if (freq[i] > 0) {
+            dados[size] = (unsigned char)i;
+            freqs[size] = freq[i];
+            size++;
+        }
+    }
+
+    struct MinHeapNode* raiz = construirArvoreHuffman(dados, freqs, size);
+    
+    char* codigos[256] = {0};
+    int arr[100], top = 0;
+    armazenarCodigos(raiz, arr, top, codigos);
+    
+    // Tratamento especial para apenas 1 símbolo único
+    if (size == 1) {
+         codigos[dados[0]] = strdup("0");
+    }
+
+    res.hex_code = (char*)malloc(n * 2 + 100); 
+    int hex_idx = 0;
+    unsigned char bit_buffer = 0;
+    int bit_count = 0;
+    int total_bytes = 0;
+
+    for (int i = 0; i < n; i++) {
+        char* code = codigos[buffer[i]];
+        for (int j = 0; code[j]; j++) {
+            if (code[j] == '1') bit_buffer |= (1 << (7 - bit_count));
+            bit_count++;
+            if (bit_count == 8) {
+                hex_idx += sprintf(res.hex_code + hex_idx, "%02X", bit_buffer);
+                total_bytes++;
+                bit_buffer = 0;
+                bit_count = 0;
             }
-            tabelaCodigos[raiz->dado][top] = '\0';
         }
     }
+    if (bit_count > 0) {
+        hex_idx += sprintf(res.hex_code + hex_idx, "%02X", bit_buffer);
+        total_bytes++;
+    }
+
+    res.size = total_bytes;
+    res.taxa = ((float)res.size / n) * 100;
+    
+    // Cleanup simples (idealmente liberaria a árvore tbm)
+    for(int i=0; i<256; i++) if(codigos[i]) free(codigos[i]);
+    
+    return res;
 }
 
-void liberarArvore(MinHeapNode* raiz) {
-    if (raiz == NULL) return;
-    liberarArvore(raiz->esq);
-    liberarArvore(raiz->dir);
-    free(raiz);
+// RLE Simples
+Result processarRLE(unsigned char* buffer, int n) {
+    Result res;
+    if (n == 0) {
+        res.size = 0;
+        res.hex_code = strdup("");
+        res.taxa = 0.0;
+        return res;
+    }
+    
+    res.hex_code = (char*)malloc(n * 2 * 2 + 1); // Pior caso
+    int hex_idx = 0;
+    int size = 0;
+    
+    for (int i = 0; i < n; i++) {
+        unsigned char atual = buffer[i];
+        int count = 1;
+        while (i + 1 < n && buffer[i+1] == atual && count < 255) {
+            count++;
+            i++;
+        }
+        hex_idx += sprintf(res.hex_code + hex_idx, "%02X%02X", count, atual);
+        size += 2;
+    }
+    
+    res.size = size;
+    res.taxa = ((float)size / n) * 100;
+    return res;
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        printf("Uso: %s <entrada.txt> <saida.txt>\n", argv[0]);
-        return 1;
-    }
-    int num_sequencias = 0;
-    SequenciaInput *lista_sequencias = read_file(argv[1], &num_sequencias);
-    if (!lista_sequencias) {
-        printf("Erro ao ler arquivo ou arquivo vazio.\n");
-        return 1;
-    }
-    FILE *fout = fopen(argv[2], "w");
-    if (!fout) {
-        free_input(lista_sequencias, num_sequencias);
-        return 1;
-    }
-    for (int i = 0; i < num_sequencias; i++) {
-        SequenciaInput atual = lista_sequencias[i];
-        CompressaoResult rle = executar_RLE(atual.dados, atual.tamanho);
-        CompressaoResult huf = executar_Huffman(atual.dados, atual.tamanho);
-        if (huf.size_bytes == rle.size_bytes) {
-            fprintf(fout, "%d->HUF(%.2f%%)=%s\n", atual.id, huf.taxa_compressao, huf.hex_string);
-            fprintf(fout, "%d->RLE(%.2f%%)=%s\n", atual.id, rle.taxa_compressao, rle.hex_string);
+int main() {
+    int num_casos;
+    if (scanf("%d", &num_casos) != 1) return 0;
+
+    for (int k = 0; k < num_casos; k++) {
+        int n;
+        scanf("%d", &n);
+        
+        unsigned char *buffer = (unsigned char*)malloc(n);
+        for (int i = 0; i < n; i++) {
+            unsigned int temp;
+            scanf("%x", &temp);
+            buffer[i] = (unsigned char)temp;
         }
-        else if (huf.size_bytes < rle.size_bytes) {
-            fprintf(fout, "%d->HUF(%.2f%%)=%s\n", atual.id, huf.taxa_compressao, huf.hex_string);
+
+        Result huf = processarHuffman(buffer, n);
+        Result rle = processarRLE(buffer, n);
+
+        printf("%d->HUF(%.2f%%)=%s\n", k, huf.taxa, huf.hex_code);
+        
+        // Lógica de desempate ou escolha do melhor
+        if (rle.size < huf.size) {
+             printf("%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
+        } else if (rle.size == huf.size) {
+             printf("%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
         }
-        else {
-            fprintf(fout, "%d->RLE(%.2f%%)=%s\n", atual.id, rle.taxa_compressao, rle.hex_string);
-        }
-        free(rle.hex_string);
-        free(huf.hex_string);
+
+        free(buffer);
+        free(huf.hex_code);
+        free(rle.hex_code);
     }
-    fclose(fout);
-    free_input(lista_sequencias, num_sequencias);
     return 0;
 }
