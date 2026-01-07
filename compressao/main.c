@@ -249,36 +249,50 @@ Result processarRLE(unsigned char* buffer, int n) {
     return res;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Verifica se passou os arquivos
+    if (argc < 3) {
+        printf("Uso: %s <entrada> <saida>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *fin = fopen(argv[1], "r");
+    if (!fin) return 1;
+
+    FILE *fout = fopen(argv[2], "w");
+    if (!fout) { fclose(fin); return 1; }
+
     int num_casos;
-    if (scanf("%d", &num_casos) != 1) return 0;
+    if (fscanf(fin, "%d", &num_casos) != 1) return 0;
 
     for (int k = 0; k < num_casos; k++) {
         int n;
-        scanf("%d", &n);
+        fscanf(fin, "%d", &n);
         
         unsigned char *buffer = (unsigned char*)malloc(n);
         for (int i = 0; i < n; i++) {
             unsigned int temp;
-            scanf("%x", &temp);
+            fscanf(fin, "%x", &temp);
             buffer[i] = (unsigned char)temp;
         }
 
         Result huf = processarHuffman(buffer, n);
         Result rle = processarRLE(buffer, n);
 
-        printf("%d->HUF(%.2f%%)=%s\n", k, huf.taxa, huf.hex_code);
+        fprintf(fout, "%d->HUF(%.2f%%)=%s\n", k, huf.taxa, huf.hex_code);
         
-        // Lógica de desempate ou escolha do melhor
         if (rle.size < huf.size) {
-             printf("%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
+             fprintf(fout, "%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
         } else if (rle.size == huf.size) {
-             printf("%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
+             fprintf(fout, "%d->RLE(%.2f%%)=%s\n", k, rle.taxa, rle.hex_code);
         }
 
         free(buffer);
         free(huf.hex_code);
         free(rle.hex_code);
     }
+
+    fclose(fin);
+    fclose(fout);
     return 0;
 }
