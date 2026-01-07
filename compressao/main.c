@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Estruturas para Huffman
+// ============================================================================
+// ESTRUTURAS
+// ============================================================================
+
 struct MinHeapNode {
     unsigned char dado;
     unsigned freq;
@@ -15,14 +18,16 @@ struct MinHeap {
     struct MinHeapNode** array;
 };
 
-// Estrutura para o resultado
 typedef struct {
     int size;
     char *hex_code;
     float taxa;
 } Result;
 
-// Funções auxiliares de Huffman
+// ============================================================================
+// FUNÇÕES AUXILIARES HEAP / HUFFMAN
+// ============================================================================
+
 struct MinHeapNode* novoNo(unsigned char dado, unsigned freq) {
     struct MinHeapNode* temp = (struct MinHeapNode*)malloc(sizeof(struct MinHeapNode));
     temp->esq = temp->dir = NULL;
@@ -45,7 +50,7 @@ void swapMinHeapNode(struct MinHeapNode** a, struct MinHeapNode** b) {
     *b = t;
 }
 
-// CORREÇÃO 1: Adicionado critério de desempate pelo valor do dado (byte)
+// Critério de desempate: Frequência > Valor do Byte (Dado)
 void minHeapify(struct MinHeap* minHeap, int idx) {
     int menor = idx;
     int esq = 2 * idx + 1;
@@ -93,32 +98,41 @@ int isSizeOne(struct MinHeap* minHeap) {
     return (minHeap->tamanho == 1);
 }
 
-// CORREÇÃO 2: Implementação do Build-Heap (Heapify Reverso O(N))
+// --- CONSTRUÇÃO DA ÁRVORE (CORRIGIDA - CRASH FIX) ---
 struct MinHeapNode* construirArvoreHuffman(unsigned char dados[], int freq[], int size) {
     struct MinHeapNode *esq, *dir, *top;
     struct MinHeap* minHeap = createMinHeap(size);
 
-    // Passo 1: Preencher o array diretamente (sem insertMinHeap)
+    // Passo 1: Preencher o array diretamente
     for (int i = 0; i < size; ++i) {
         minHeap->array[i] = novoNo(dados[i], freq[i]);
     }
     minHeap->tamanho = size;
 
     // Passo 2: Construir o Heap de baixo para cima (Heapify Reverso)
-    for (int i = (minHeap->tamanho - 2) / 2; i >= 0; --i) {
-        minHeapify(minHeap, i);
+    // FIX: Verificar se size > 1 para evitar Underflow de unsigned int (1 - 2 = CRASH)
+    if (size > 1) {
+        for (int i = (minHeap->tamanho - 2) / 2; i >= 0; --i) {
+            minHeapify(minHeap, i);
+        }
     }
 
     // Passo 3: Construir a árvore
     while (!isSizeOne(minHeap)) {
         esq = extractMin(minHeap);
         dir = extractMin(minHeap);
+        // Nó pai recebe '$' mas o desempate real ocorre nos nós folha durante o Heapify
         top = novoNo('$', esq->freq + dir->freq);
         top->esq = esq;
         top->dir = dir;
         insertMinHeap(minHeap, top);
     }
-    return extractMin(minHeap);
+    
+    struct MinHeapNode* raiz = extractMin(minHeap);
+    free(minHeap->array); // Limpeza básica
+    free(minHeap);
+    
+    return raiz;
 }
 
 void armazenarCodigos(struct MinHeapNode* raiz, int arr[], int top, char** codigos) {
@@ -139,18 +153,9 @@ void armazenarCodigos(struct MinHeapNode* raiz, int arr[], int top, char** codig
     }
 }
 
-// Bit packing auxiliar
-void add_bit(unsigned char *buffer, int *bit_count, char bit, char *hex_out, int *hex_idx) {
-    if (bit == '1') {
-        *buffer |= (1 << (7 - *bit_count));
-    }
-    (*bit_count)++;
-    if (*bit_count == 8) {
-        hex_idx += sprintf(hex_out + *hex_idx, "%02X", *buffer);
-        *buffer = 0;
-        *bit_count = 0;
-    }
-}
+// ============================================================================
+// PROCESSAMENTO HUFFMAN
+// ============================================================================
 
 Result processarHuffman(unsigned char* buffer, int n) {
     Result res;
@@ -161,6 +166,7 @@ Result processarHuffman(unsigned char* buffer, int n) {
         return res;
     }
 
+    // Contagem de frequência
     int freq[256] = {0};
     for (int i = 0; i < n; i++) freq[buffer[i]]++;
 
@@ -181,11 +187,13 @@ Result processarHuffman(unsigned char* buffer, int n) {
     int arr[100], top = 0;
     armazenarCodigos(raiz, arr, top, codigos);
     
-    // Tratamento especial para apenas 1 símbolo único
+    // Tratamento especial para apenas 1 símbolo único (ex: AAAAA) -> bit 0
     if (size == 1) {
+         if (codigos[dados[0]]) free(codigos[dados[0]]); // Libera alocação vazia se existir
          codigos[dados[0]] = strdup("0");
     }
 
+    // Geração da String Hexadecimal
     res.hex_code = (char*)malloc(n * 2 + 100); 
     int hex_idx = 0;
     unsigned char bit_buffer = 0;
@@ -194,6 +202,7 @@ Result processarHuffman(unsigned char* buffer, int n) {
 
     for (int i = 0; i < n; i++) {
         char* code = codigos[buffer[i]];
+        if (!code) continue; // Segurança
         for (int j = 0; code[j]; j++) {
             if (code[j] == '1') bit_buffer |= (1 << (7 - bit_count));
             bit_count++;
@@ -213,13 +222,17 @@ Result processarHuffman(unsigned char* buffer, int n) {
     res.size = total_bytes;
     res.taxa = ((float)res.size / n) * 100;
     
-    // Cleanup simples (idealmente liberaria a árvore tbm)
+    // Limpeza dos códigos
     for(int i=0; i<256; i++) if(codigos[i]) free(codigos[i]);
+    // Idealmente liberaria a árvore 'raiz' recursivamente aqui
     
     return res;
 }
 
-// RLE Simples
+// ============================================================================
+// PROCESSAMENTO RLE
+// ============================================================================
+
 Result processarRLE(unsigned char* buffer, int n) {
     Result res;
     if (n == 0) {
@@ -229,7 +242,7 @@ Result processarRLE(unsigned char* buffer, int n) {
         return res;
     }
     
-    res.hex_code = (char*)malloc(n * 2 * 2 + 1); // Pior caso
+    res.hex_code = (char*)malloc(n * 2 * 2 + 100);
     int hex_idx = 0;
     int size = 0;
     
@@ -249,21 +262,34 @@ Result processarRLE(unsigned char* buffer, int n) {
     return res;
 }
 
+// ============================================================================
+// MAIN
+// ============================================================================
+
 int main(int argc, char *argv[]) {
-    // Verifica se passou os arquivos
+    // Verifica se os arquivos foram passados
     if (argc < 3) {
         printf("Uso: %s <entrada> <saida>\n", argv[0]);
         return 1;
     }
 
     FILE *fin = fopen(argv[1], "r");
-    if (!fin) return 1;
+    if (!fin) {
+        printf("Erro ao abrir entrada.\n");
+        return 1;
+    }
 
     FILE *fout = fopen(argv[2], "w");
-    if (!fout) { fclose(fin); return 1; }
+    if (!fout) { 
+        printf("Erro ao criar saida.\n");
+        fclose(fin); 
+        return 1; 
+    }
 
     int num_casos;
-    if (fscanf(fin, "%d", &num_casos) != 1) return 0;
+    if (fscanf(fin, "%d", &num_casos) != 1) {
+        fclose(fin); fclose(fout); return 0;
+    }
 
     for (int k = 0; k < num_casos; k++) {
         int n;
